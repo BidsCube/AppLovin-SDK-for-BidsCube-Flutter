@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "bidscube-sdk-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/BidsCube/bidscube-sdk-ios.git",
+      "state" : {
+        "revision" : "0e50ba101f18d90e806c4920d67058d71f0b3895",
+        "version" : "0.2.0"
+      }
+    },
+    {
+      "identity" : "swift-package-manager-google-interactive-media-ads-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/googleads/swift-package-manager-google-interactive-media-ads-ios.git",
+      "state" : {
+        "revision" : "db4cbeb8c39f7c0fa2a28c52897e75288f6a3eaf",
+        "version" : "3.27.4"
+      }
+    }
+  ],
+  "version" : 2
+}

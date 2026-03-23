@@ -1,0 +1,50 @@
+name: bidscube_sdk_flutter
+description: "BidsCube Flutter plugin: native Android/iOS bridge for AppLovin MAX mediation, plus direct SDK widgets (image, video, native, banner) when not in mediation mode."
+version: 1.0.0
+homepage: https://github.com/bidscube/bidscube-sdk-flutter
+repository: https://github.com/bidscube/bidscube-sdk-flutter
+issue_tracker: https://github.com/bidscube/bidscube-sdk-flutter/issues
+
+topics:
+  - ads
+  - monetization
+  - video
+  - webview
+  - networking
+
+environment:
+  # CI: Flutter version for GitHub Actions — `.github/flutter-version` (see workflows).
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  webview_flutter: ^4.13.0
+  video_player: ^2.10.0
+  http: ^1.5.0
+  xml: ^6.6.1
+  package_info_plus: ^9.0.0
+  device_info_plus: ^12.2.0
+  interactive_media_ads: ^0.3.0+4
+  video_player_android: ^2.8.17
+  video_player_avfoundation: ^2.8.5
+  video_player_platform_interface: ^6.6.0
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+example:
+  path: example/
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.bidscube.sdk.flutter
+        pluginClass: BidscubeSdkFlutterPlugin
+      ios:
+        pluginClass: BidscubeSdkPlugin

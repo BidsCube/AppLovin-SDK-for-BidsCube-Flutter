@@ -1,0 +1,6 @@
+# Exclude from `dart pub publish` (keeps the package tarball small).
+build/
+.dart_tool/
+*.iml
+example/build/
+example/.dart_tool/

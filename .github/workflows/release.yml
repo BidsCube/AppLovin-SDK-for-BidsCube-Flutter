@@ -1,0 +1,112 @@
+# pub.dev + GitHub Release on push of tag v* (e.g. v1.0.0).
+# pubspec.yaml version: must match the tag without the v prefix.
+#
+# One-time pub.dev setup: https://dart.dev/tools/pub/automated-publishing
+# GitHub repo → pub.dev → Enable automated publishing → OIDC (id-token: write below).
+
+name: Release (pub.dev + GitHub)
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Manual run: test + analyze + pub publish --dry-run (publish only on tag push v*).
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify pubspec version matches tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          VER=$(grep '^version:' pubspec.yaml | head -1 | awk '{print $2}')
+          echo "Git tag (no v): $TAG"
+          echo "pubspec version:   $VER"
+          if [ "$TAG" != "$VER" ]; then
+            echo "::error::pubspec version ($VER) does not match tag (v$TAG). Update pubspec or retag."
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$TAG" >> "$GITHUB_ENV"
+
+      - name: Setup Java (Android plugin verification)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup Flutter (pin from .github/flutter-version)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .github/flutter-version
+          channel: stable
+          cache: true
+
+      - name: Disable analytics (CI)
+        run: flutter config --no-analytics
+
+      - name: Versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Test
+        run: flutter test
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: pub publish --dry-run
+        run: flutter pub publish --dry-run
+
+      # GitHub Release right after green CI, BEFORE pub.dev — otherwise OIDC/pub publish failure
+      # would skip creating a GitHub release entirely.
+      - name: GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: bidscube_sdk_flutter ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
+          body: |
+            ## Install (pub.dev)
+
+            ```yaml
+            dependencies:
+              bidscube_sdk_flutter: ^${{ env.RELEASE_VERSION }}
+            ```
+
+            Docs: [pub.dev/packages/bidscube_sdk_flutter](https://pub.dev/packages/bidscube_sdk_flutter)
+
+            See also [RELEASE.md](https://github.com/${{ github.repository }}/blob/main/RELEASE.md) in this repository.
+
+      - name: Publish to pub.dev
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          set +e
+          output=$(dart pub publish -f 2>&1)
+          rc=$?
+          echo "$output"
+          if [ "$rc" -ne 0 ]; then
+            if echo "$output" | grep -qi "already exists"; then
+              echo "Version already on pub.dev — workflow finished."
+              exit 0
+            fi
+            exit "$rc"
+          fi
