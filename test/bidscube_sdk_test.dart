@@ -57,7 +57,8 @@ void main() {
       );
     });
 
-    test('legacy integrationMode wire levelPlay maps to appLovinMaxMediation', () {
+    test('legacy integrationMode wire levelPlay maps to appLovinMaxMediation',
+        () {
       final configFromMap = SDKConfig.fromMap({
         'baseURL': 'https://ssp-bcc-ads.com/sdk',
         'integrationMode': 'levelPlay',
