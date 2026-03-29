@@ -1,15 +1,38 @@
 # BidsCube Flutter SDK (`bidscube_sdk_flutter`)
 
-Flutter plugin for **BidsCube** on Android/iOS with **AppLovin MAX** mediation (native adapter + shared `BidscubeSDK` init), plus a **direct SDK** (Flutter widgets) when you use `directSdk` instead of mediation.
+Flutter plugin for **BidsCube** on **Android** / **iOS** with **AppLovin MAX** mediation (native adapter + shared `BidscubeSDK` init), plus a **direct SDK** (Flutter widgets) when you use `directSdk` instead of mediation.
+
+## Contents
+
+- [Use as a Flutter library](#use-as-a-flutter-library)
+- [Features](#features)
+- [Requirements](#requirements)
+- [AppLovin MAX (mediation)](#applovin-max-mediation)
+- [Releasing (maintainers)](#releasing-maintainers)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Custom rendering with `onAdRenderOverride`](#custom-rendering-with-onadrenderoverride)
+- [Usage examples](#usage-examples)
+- [Advanced features](#advanced-features)
+- [Test placement IDs](#test-placement-ids)
+- [Running the test app](#running-the-test-app)
+- [Configuration options](#configuration-options)
+- [Ad request endpoint (reference)](#ad-request-endpoint-reference)
+- [Troubleshooting](#troubleshooting)
+- [Building the package](#building-the-package)
+- [Changelog](#changelog)
+- [License](#license)
+
+---
 
 ## Use as a Flutter library
 
-Add the dependency, then import the **library barrel** (only public entry you need):
+Add the dependency, then import the **library barrel** (the main public entry):
 
 ```yaml
 # pubspec.yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.0
+  bidscube_sdk_flutter: ^1.0.1
   # Local development:
   # bidscube_sdk_flutter:
   #   path: path/to/AppLovin-SDK-Flutter
@@ -19,38 +42,54 @@ dependencies:
 import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
 ```
 
-The package is a **Flutter plugin** (`flutter.plugin` in [pubspec.yaml](pubspec.yaml)): Android (`BidscubeSdkFlutterPlugin`) and iOS (`BidscubeSdkPlugin`) register `MethodChannel('bidscube_sdk')` and PlatformViews. Run `flutter pub get`; on iOS run `pod install` under `ios/`. Native Bidscube artifacts are pulled per [android/build.gradle](android/build.gradle) and [ios/bidscube_sdk_flutter.podspec](ios/bidscube_sdk_flutter.podspec).
+The package is a **Flutter plugin** (`flutter.plugin` in [`pubspec.yaml`](pubspec.yaml)): **Android** (`BidscubeSdkFlutterPlugin`) and **iOS** (`BidscubeSdkPlugin`) register `MethodChannel('bidscube_sdk')` and **PlatformViews**. Run `flutter pub get`; on iOS run `pod install` under `ios/`. Native Bidscube artifacts are resolved via [`android/build.gradle`](android/build.gradle) and [`ios/bidscube_sdk_flutter.podspec`](ios/bidscube_sdk_flutter.podspec).
+
+---
 
 ## Features
 
-- Android & iOS; **mediation**: early `BidscubeSDK.initialize` so native adapters share one SDK instance
-- **Direct SDK** (`directSdk`): image, video, native, banner, VAST / IMA, positions & styling
-- **Mediation** (`appLovinMaxMediation`): no `get*AdView` from Dart — ads are driven only by **AppLovin MAX**
-- Logging, timeouts, `onAdRenderOverride`, test placement IDs in README tables below
+| Area | Behavior |
+|------|----------|
+| **Platforms** | Android & iOS for native bridge; Web/Desktop follow Flutter support when using **direct** (`useFlutterOnly`) paths |
+| **Mediation** | Early `BidscubeSDK.initialize` so native **MAX** adapters share **one** native SDK instance |
+| **Direct SDK** (`directSdk`) | Image, video, native, banner, VAST / IMA, positions & styling |
+| **Mediation** (`appLovinMaxMediation`) | No `get*AdView` from Dart — ads are driven only by **AppLovin MAX** |
+| **Extras** | Logging, timeouts, `onAdRenderOverride`, test placement IDs (below) |
+
+---
 
 ## Requirements
 
-- Flutter **3.19.0+**, Dart **3.5.0+** (`pubspec.yaml`, `.github/flutter-version` for CI)
-- Android **24+** with native SDK; **`mavenLocal()`** + local publish from your native SDK tree when needed — see `android/libs/README.md`
-- iOS **13+**; Web/Desktop: same as Flutter platform support for direct SDK
+| Requirement | Details |
+|-------------|---------|
+| **Flutter / Dart** | Flutter **3.19.0+**, Dart **3.5.0+** — see [`pubspec.yaml`](pubspec.yaml); CI pins a Flutter SDK in [`.github/flutter-version`](.github/flutter-version) |
+| **Android** | **API 24+** with native SDK; use **`mavenLocal()`** and a local publish from your native SDK tree when needed — [`android/libs/README.md`](android/libs/README.md) |
+| **iOS** | **13+** |
+| **Web / desktop** | Same as Flutter platform support for **direct** SDK usage where applicable |
+
+---
 
 ## AppLovin MAX (mediation)
 
-Mediation lives in **native** `BidscubeMediationAdapter` (Android) / `ALBidscubeMediationAdapter` (iOS), not in Dart. From Flutter you only **initialize** the native Bidscube SDK so the MAX adapter uses the same instance.
+Mediation lives in **native** code — `BidscubeMediationAdapter` (Android) / `ALBidscubeMediationAdapter` (iOS), **not** in Dart. From Flutter you only **initialize** the native Bidscube SDK so the MAX adapter uses the **same** instance.
 
-| Format | Native (native Bidscube SDK) | Role |
-|--------|------------------------------|------|
-| **Banner** | `getImageAdView` (native SDK) | Adapter passes the returned `View` / `UIView` to MAX. Inside AppLovin, **AdDisplayManager** uses the rendered ADM and **BannerViewFactory** builds the **WebView**. In **Dart** direct SDK, use `getBannerAdView` (maps to the same native call). |
-| **Interstitial** | `showImageAd` | Full-screen image flow inside AppLovin (overlay from your rendered ADM). |
-| **Video** | `showVideoAd` | Full-screen playback via **IMAPlayerHandler** (or platform equivalent) and **fullscreen** container. |
-| **Native** | `getNativeAdView` | Adapter builds **`MaxNativeAd`** from the native payload and passes **that** to MAX — not the SDK view as the mediated creative. |
+### Native flow (formats)
 
-**Flutter:** use `BidscubeIntegrationMode.appLovinMaxMediation`, `useFlutterOnly: false`, and **do not** call Dart `getBannerAdView` / `getVideoAdView` / etc. — load/show only through MAX (`applovin_max` or native MAX APIs). (Mediation uses native `getImageAdView`, not the Flutter API.)
+| Format | Native (Bidscube SDK) | Role |
+|--------|------------------------|------|
+| **Banner** | `getImageAdView` | Adapter passes the returned `View` / `UIView` to MAX. Inside AppLovin, **AdDisplayManager** uses the rendered ADM and **BannerViewFactory** builds the **WebView**. In **Dart** direct SDK, use `getBannerAdView` (same native call under the hood). |
+| **Interstitial** | `showImageAd` | Full-screen image flow inside AppLovin (overlay from rendered ADM). |
+| **Video** | `showVideoAd` | Full-screen playback via **IMAPlayerHandler** (or platform equivalent) and fullscreen container. |
+| **Native** | `getNativeAdView` | Adapter builds **`MaxNativeAd`** from the native payload for MAX — **not** the SDK view as the mediated creative. |
+
+### Flutter initialization (mediation)
+
+Use `BidscubeIntegrationMode.appLovinMaxMediation`, `useFlutterOnly: false`, and **do not** call Dart `getBannerAdView` / `getVideoAdView` / `getNativeAdView` — load/show only through MAX (`applovin_max` or native MAX APIs). Mediation uses native `getImageAdView`, not the Flutter API.
 
 ```dart
 await BidscubeSDK.initialize(
   config: SDKConfig.builder()
-      .baseURL('https://ssp-bcc-ads.com/sdk')
+      .adRequestAuthority('ssp-bcc-ads.com') // default; omit to use production host
       .integrationMode(BidscubeIntegrationMode.appLovinMaxMediation)
       .build(),
   useFlutterOnly: false,
@@ -58,61 +97,80 @@ await BidscubeSDK.initialize(
 // Then: AppLovin MAX SDK init, ad units, load/show via MAX.
 ```
 
+### Mode summary
+
 | Mode | Mediation | Dart `getBannerAdView` / … |
 |------|-----------|----------------------------|
-| `directSdk` (default) | Optional (you add MAX yourself) | Yes |
-| `appLovinMaxMediation` | Yes — MAX only | No — `UnsupportedError` |
+| `directSdk` (default) | Optional (you add MAX yourself) | **Yes** |
+| `appLovinMaxMediation` | Yes — MAX only | **No** — throws `UnsupportedError` |
 
-**Rules:** `useFlutterOnly: false`. Do not use `FlutterOnlyBidscube` with `appLovinMaxMediation`.
+**Rules**
 
-**Dependencies:** `bidscube_sdk_flutter` + [applovin_max](https://pub.dev/packages/applovin_max) (or native MAX SDK) + your **Bidscube MAX adapter** artifacts per integration guide.
+- Use `useFlutterOnly: false` for mediation.
+- Do **not** use `FlutterOnlyBidscube` with `appLovinMaxMediation`.
 
-**Android `app`:** `minSdk` 24; add AppLovin MAX SDK and Bidscube adapter dependencies from your adapter docs; `mavenLocal()` if the Bidscube AAR is local; core desugaring like `example/android/app/build.gradle.kts` if Gradle asks.
+**Dependencies:** `bidscube_sdk_flutter` + [`applovin_max`](https://pub.dev/packages/applovin_max) (or native MAX SDK) + your **Bidscube MAX adapter** artifacts per integration guide.
 
-**iOS `Podfile`:** after `flutter_install_all_ios_pods`, add AppLovin MAX, `BidscubeSDK`, and the Bidscube MAX adapter pod (versions per your release). Then `pod install`.
+**Android app**
 
-**MAX dashboard**
+- `minSdk` **24** (adjust if your adapter docs require higher).
+- Add AppLovin MAX SDK and Bidscube adapter dependencies from your adapter docs.
+- `mavenLocal()` if the Bidscube AAR is local.
+- Enable **core desugaring** if Gradle requires it (see [`example/android/app/build.gradle.kts`](example/android/app/build.gradle.kts)).
+
+**iOS `Podfile`**
+
+After `flutter_install_all_ios_pods`, add AppLovin MAX, `BidscubeSDK`, and the Bidscube MAX adapter pod (versions per your release), then `pod install`.
+
+### MAX dashboard
 
 | Item | Where | Note |
 |------|--------|------|
-| SDK Key | AppLovin MAX | MAX SDK initialization |
-| Ad unit IDs | MAX dashboard | Used in load/show APIs |
-| Custom network | MAX mediation | Bidscube adapter class / package |
-| Android | Network setup | e.g. `BidscubeMediationAdapter` (match your artifact) |
-| iOS | Network setup | e.g. `ALBidscubeMediationAdapter` |
-| Instance / custom string | Network instance | **Bidscube placement ID** |
+| **SDK Key** | AppLovin MAX | MAX SDK initialization |
+| **Ad unit IDs** | MAX dashboard | Used in load/show APIs |
+| **Custom network** | MAX mediation | Bidscube adapter class / package |
+| **Android** | Network setup | e.g. `BidscubeMediationAdapter` (match your artifact) |
+| **iOS** | Network setup | e.g. `ALBidscubeMediationAdapter` |
+| **Instance / custom string** | Network instance | Bidscube **placement ID** |
 
-**Legacy configs:** Older serialized `SDKConfig` with `integrationMode: 'levelPlay'` still deserialize as **`appLovinMaxMediation`** (Level Play is no longer a separate mode).
+AppLovin overview: [Integrating custom SDK networks](https://support.axon.ai/en/max/mediated-network-guides/integrating-custom-sdk-networks/).
+
+**Legacy configs:** serialized `SDKConfig` with `integrationMode: 'levelPlay'` still deserializes as **`appLovinMaxMediation`** (Level Play is no longer a separate mode).
+
+---
 
 ## Releasing (maintainers)
 
-`RELEASE.md` — tags, pub.dev OIDC, GitHub Release. Workflow: `.github/workflows/release.yml`.
+See [`RELEASE.md`](RELEASE.md) — tags, pub.dev OIDC, GitHub Release. Workflow: [`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+---
 
 ## Installation
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.0
+  bidscube_sdk_flutter: ^1.0.1
 ```
 
-Mediation: add native Bidscube + AppLovin MAX + your Bidscube MAX adapter (see **AppLovin MAX (mediation)** above).
+For **mediation**, add native Bidscube + AppLovin MAX + your Bidscube MAX adapter (see [AppLovin MAX (mediation)](#applovin-max-mediation)).
 
 ```bash
 flutter pub get
 ```
 
-## Quick Start
+---
 
-**Direct SDK only** (`directSdk`). For MAX mediation use **AppLovin MAX (mediation)** — no Dart `get*AdView` there.
+## Quick start
+
+**Direct SDK** (`directSdk`) only below. For **MAX** mediation, follow [AppLovin MAX (mediation)](#applovin-max-mediation) — **no** Dart `get*AdView` there.
 
 ### 1. Initialize the SDK
 
 ```dart
 import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
 
-// Configure the SDK
 final config = SDKConfig.builder()
-    .baseURL('https://ssp-bcc-ads.com/sdk')
+    .adRequestAuthority('ssp-bcc-ads.com') // optional; default production SSP host
     .enableLogging(true)
     .enableDebugMode(true)
     .defaultAdTimeout(30000)
@@ -120,35 +178,31 @@ final config = SDKConfig.builder()
     .enableTestMode(true)
     .build();
 
-// Initialize the SDK
 await BidscubeSDK.initialize(config: config);
 ```
 
-### 2. Create Ad Views
+### 2. Create ad views
 
-Banner and image inventory share one path: Dart exposes **`getBannerAdView`** (the Android/iOS plugin calls native `BidscubeSDK.getImageAdView` under the hood). Mediation adapters call **`getImageAdView`** directly in native code — there is no `getImageAdView` on the Dart `BidscubeSDK` class.
+Banner and image inventory share one path: Dart exposes **`getBannerAdView`** (plugin → native `BidscubeSDK.getImageAdView`). MAX adapters call **`getImageAdView`** in native code — there is **no** `getImageAdView` on the Dart `BidscubeSDK` class.
 
 ```dart
-// Banner / image (Dart API)
 final bannerAdView = await BidscubeSDK.getBannerAdView(
   'your_banner_or_image_placement_id',
   callback: MyAdCallback(),
 );
 
-// Video Ad
 final videoAdView = await BidscubeSDK.getVideoAdView(
   'your_video_placement_id',
   callback: MyAdCallback(),
 );
 
-// Native Ad
 final nativeAdView = await BidscubeSDK.getNativeAdView(
   'your_native_placement_id',
   callback: MyAdCallback(),
 );
 ```
 
-### 3. Implement Ad Callbacks
+### 3. Implement ad callbacks
 
 ```dart
 class MyAdCallback implements AdCallback {
@@ -199,31 +253,35 @@ class MyAdCallback implements AdCallback {
 }
 ```
 
-## Custom rendering with onAdRenderOverride
+---
 
-If you want full control over how an ad is rendered in your app (for example to use your own native components, custom WebView handling, or a different layout), use the `onAdRenderOverride` callback on your `AdCallback` implementation.
+## Custom rendering with `onAdRenderOverride`
 
-How it works
+For full control over rendering (custom components, WebView, layout), implement **`onAdRenderOverride`** on your `AdCallback`.
 
-- When you pass an `AdCallback` to `getBannerAdView`, `getVideoAdView`, or `getNativeAdView`, the SDK will check whether the callback's `onAdRenderOverride` is non-null.
-- If `onAdRenderOverride` is provided, the SDK will perform the ad request and call your `onAdRenderOverride(placementId, adm, position)` handler with the server response.
-  - `adm` is the ad markup or data: it may be an HTML snippet, a VAST XML (for video), or a JSON-encoded object for native ads. If the server doesn't provide a specific `adm` field the SDK will pass a JSON-encoded fallback with the full response.
-- When `onAdRenderOverride` is used, the SDK returns a placeholder widget (a SizedBox) instead of mounting the SDK-built view — you are expected to render the ad yourself inside your app UI.
+### How it works
 
-Recommended usage pattern
+1. For `getBannerAdView` / `getVideoAdView` / `getNativeAdView`, if `onAdRenderOverride` is **non-null**, the SDK performs the request and calls **`onAdRenderOverride(placementId, adm, position)`** with the server response.
+2. **`adm`** may be HTML, VAST XML, or JSON (native); if there is no dedicated `adm` field, the SDK may pass a JSON-encoded fallback with the full response.
+3. With an override, the SDK returns a **placeholder** (`SizedBox`) instead of the SDK-built view — **you** render the ad in your widget tree.
 
-1. Implement an `AdCallback` and set the `onAdRenderOverride` handler. In the handler parse the `adm` and create a Widget to display the ad.
-2. Insert that widget into your widget tree (for example by storing it in state and calling `setState`) at the desired location.
-3. The SDK still calls lifecycle methods (`onAdLoading`, `onAdLoaded`, `onAdDisplayed`, `onAdFailed`) so you can track ad state as before.
+### Recommended pattern
 
-Example: render HTML/creative in a WebView
+1. Implement `AdCallback` and assign `onAdRenderOverride`; parse `adm` and build a `Widget`.
+2. Put that widget in the tree (e.g. store in state / `setState`).
+3. Lifecycle methods (`onAdLoading`, `onAdLoaded`, …) still run as usual.
+
+### Example: HTML in a WebView
 
 ```dart
+import 'package:webview_flutter/webview_flutter.dart';
+
 class ClientAdWidget extends StatefulWidget {
   final String placementId;
-  ClientAdWidget(this.placementId);
+  const ClientAdWidget(this.placementId, {super.key});
+
   @override
-  State createState() => _ClientAdWidgetState();
+  State<ClientAdWidget> createState() => _ClientAdWidgetState();
 }
 
 class _ClientAdWidgetState extends State<ClientAdWidget> {
@@ -231,65 +289,70 @@ class _ClientAdWidgetState extends State<ClientAdWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_html == null) return SizedBox(width: 320, height: 240);
+    if (_html == null) return const SizedBox(width: 320, height: 240);
     return SizedBox(
       width: 320,
       height: 240,
-      child: WebViewWidget(controller: WebViewController()..loadHtmlString(_html!)),
+      child: WebViewWidget(
+        controller: WebViewController()..loadHtmlString(_html!),
+      ),
     );
   }
 
   void updateHtml(String html) => setState(() => _html = html);
 }
 
-// When you register the callback (example in a State object):
 final clientAdWidgetKey = GlobalKey<_ClientAdWidgetState>();
-final clientWidget = ClientAdWidget('20212');
+final clientWidget = ClientAdWidget('20212', key: clientAdWidgetKey);
 
 final callback = MyAdCallback();
 callback.onAdRenderOverride = (placementId, adm, position) {
-  // adm may already be full HTML; if it's JSON-encoded, extract the HTML from adm
-  final html = adm; // or parse adm to extract HTML fragment
+  final html = adm;
   clientAdWidgetKey.currentState?.updateHtml(html);
 };
 
-// Add the clientWidget (with key) into your UI; then call:
+// Place clientWidget in the tree, then:
 await BidscubeSDK.getBannerAdView('20212', callback: callback);
 ```
 
-Example: parse native JSON and build a Flutter widget
+### Example: native JSON → Flutter widget
 
 ```dart
 callback.onAdRenderOverride = (placementId, adm, position) {
-  // adm may be JSON; try to decode
   try {
     final data = json.decode(adm) as Map<String, dynamic>;
-    // Extract fields (title, image, cta, etc.) and create widget
     final title = data['title'] ?? '';
     final imageUrl = data['imageUrl'] ?? '';
     setState(() {
       _clientAdWidget = GestureDetector(
         onTap: () => _onAdClicked(placementId),
-        child: Column(children: [Text(title), Image.network(imageUrl), /* cta */]),
+        child: Column(
+          children: [
+            Text(title),
+            Image.network(imageUrl),
+            // CTA, etc.
+          ],
+        ),
       );
     });
   } catch (e) {
-    // Fallback: treat adm as plain string and log
     print('Failed to parse adm: $e');
   }
 };
 ```
 
-Notes and tips
+### Notes
 
-- The SDK will call your lifecycle methods (onAdLoading/onAdLoaded/onAdDisplayed/onAdFailed) so you can show placeholders or retry UI while the network request is in progress.
-- For VAST video ADM you typically receive XML — you can either feed it to a VAST/IMA player or implement your own video player. The SDK's IMA integration is used only when the SDK renders the view itself; when you override rendering you are responsible for playing/pausing and tracking video events.
-- If your `onAdRenderOverride` throws an error, the SDK will log the exception and continue; consider adding try/catch around parsing and rendering logic to avoid losing lifecycle notifications.
-- When using custom rendering, make sure to call `BidscubeSDK.setAdCallback(placementId, callback)` if you need SDK-level registration for later events (optional — passing callback directly to `get*AdView` is usually sufficient).
+- Lifecycle callbacks still run for loading / errors / display.
+- For **VAST** `adm`, you supply your own player or IMA pipeline when overriding; default SDK IMA applies only when the SDK renders the view.
+- Wrap parsing in **try/catch**; exceptions in the override are logged by the SDK.
+- Use `BidscubeSDK.setAdCallback(placementId, callback)` if you need SDK-level registration for later events (optional; passing `callback` into `get*AdView` is usually enough).
 
-## Usage Examples
+---
 
-### Banner / image ads (Dart)
+## Usage examples
+
+### Banner / image (Dart)
 
 ```dart
 final bannerAdView = await BidscubeSDK.getBannerAdView(
@@ -297,15 +360,14 @@ final bannerAdView = await BidscubeSDK.getBannerAdView(
   callback: MyAdCallback(),
 );
 
-// Add to your widget tree
-Container(
+SizedBox(
   width: 320,
   height: 240,
   child: bannerAdView,
-)
+);
 ```
 
-### Video Ads
+### Video
 
 ```dart
 final videoAdView = await BidscubeSDK.getVideoAdView(
@@ -313,15 +375,14 @@ final videoAdView = await BidscubeSDK.getVideoAdView(
   callback: MyAdCallback(),
 );
 
-// Add to your widget tree
-Container(
+SizedBox(
   width: 320,
   height: 240,
   child: videoAdView,
-)
+);
 ```
 
-### Native Ads
+### Native
 
 ```dart
 final nativeAdView = await BidscubeSDK.getNativeAdView(
@@ -329,155 +390,181 @@ final nativeAdView = await BidscubeSDK.getNativeAdView(
   callback: MyAdCallback(),
 );
 
-// Add to your widget tree
-Container(
+SizedBox(
   width: 320,
   height: 300,
   child: nativeAdView,
-)
+);
 ```
 
-## Advanced Features
+---
 
-### Dynamic Position-Based Styling
+## Advanced features
 
-The SDK automatically applies different visual styles based on the ad position received from the server:
+### Dynamic position-based styling
 
-- **Above The Fold**: Blue styling with rounded corners
-- **Below The Fold**: Green styling with medium corners
-- **Header**: Orange styling with small corners
-- **Footer**: Purple styling with small corners
-- **Sidebar**: Teal styling with medium corners
-- **Full Screen**: Red styling with large corners and strong shadow
-- **Depend On Screen Size**: Amber styling with medium corners
+The SDK applies styles from server **position** (e.g. header, footer, above/below the fold, full screen). Inspect widget implementations for exact visuals.
 
-### Position Override for Testing
-
-You can override the server-determined position for testing purposes:
+### Position override (testing)
 
 ```dart
-// Enable position override
 final config = SDKConfig.builder()
     .enableTestMode(true)
     .build();
 
-// The ad view will use the specified position instead of server response
 final adView = await BidscubeSDK.getBannerAdView(
   'your_placement_id',
-  position: AdPosition.fullScreen, // Override position
+  position: AdPosition.fullScreen,
   callback: MyAdCallback(),
 );
 ```
 
-### Responsive Native Ads
+### Responsive native ads
 
-Native ads automatically adapt to different screen sizes using flexible Flutter widgets:
+Native layouts adapt by width (compact / balanced / full) via flexible Flutter widgets.
 
-- **Small screens** (< 300px): Compact layout
-- **Medium screens** (300-500px): Balanced layout
-- **Large screens** (> 500px): Full layout with all elements
-
-### Comprehensive Logging
-
-The SDK provides detailed logging through `SDKLogger`:
+### Logging
 
 ```dart
-// Enable detailed logging
 final config = SDKConfig.builder()
     .enableLogging(true)
     .enableDebugMode(true)
     .build();
-
-// Logs include:
-// - Request URLs and parameters
-// - Response status codes and content
-// - Position changes from server
-// - Error details and stack traces
 ```
 
-## Test Placement IDs
+Logs include requests, responses, position changes, and errors (via `SDKLogger`).
 
-| Placement ID | Ad Type | Description                      |
-| ------------ | ------- | -------------------------------- |
-| `20212`      | Banner  | Test banner ad                   |
-| `20213`      | Video   | Test video ad with VAST response |
-| `20214`      | Native  | Test native ad                   |
+---
 
-## Running the Test App
+## Test placement IDs
 
-1. **Navigate to testapp directory**:
+| Placement ID | Ad type | Description |
+|--------------|---------|-------------|
+| `20212` | Banner | Test banner |
+| `20213` | Video | Test video (VAST) |
+| `20214` | Native | Test native |
 
-   ```bash
-   cd testapp
-   ```
+---
 
-2. **Get dependencies**:
+## Running the test app
 
-   ```bash
-   flutter pub get
-   ```
+```bash
+cd testapp
+flutter pub get
+```
 
-3. **Run on your preferred platform**:
+```bash
+# Android
+flutter run -d android
 
-   ```bash
-   # Android
-   flutter run -d android
+# iOS
+flutter run -d ios
 
-   # iOS
-   flutter run -d ios
+# Web
+flutter run -d web
 
-   # Web
-   flutter run -d web
+# macOS
+flutter run -d macos
 
-   # macOS
-   flutter run -d macos
+# Linux
+flutter run -d linux
 
-   # Linux
-   flutter run -d linux
+# Windows
+flutter run -d windows
+```
 
-   # Windows
-   flutter run -d windows
-   ```
+---
 
-## Configuration Options
-
-### SDK Configuration
+## Configuration options
 
 ```dart
 final config = SDKConfig.builder()
-    .baseURL('https://ssp-bcc-ads.com/sdk')  // API endpoint
-    .enableLogging(true)                     // Enable console logging
-    .enableDebugMode(true)                   // Enable debug mode
-    .defaultAdTimeout(30000)                 // Timeout in milliseconds
-    .defaultAdPosition(AdPosition.header)    // Default ad position
-    .enableTestMode(true)                    // Enable test mode
+    .adRequestAuthority('ssp-bcc-ads.com') // or .baseURL('https://ssp-bcc-ads.com/sdk') (legacy; normalized to authority)
+    .enableLogging(true)
+    .enableDebugMode(true)
+    .defaultAdTimeout(30000)
+    .defaultAdPosition(AdPosition.header)
+    .enableTestMode(true)
+    .integrationMode(BidscubeIntegrationMode.directSdk) // default; omit or set explicitly
     .build();
 ```
 
+---
+
+## Ad request endpoint (reference)
+
+This matches the Bidscube Android SDK behavior (`SDKConfig`, `SspAdUriHelper`, `ImageAdUrlBuilder`, `VideoAdUrlBuilder`, `NativeAdUrlBuilder`).
+
+### Host / authority
+
+- **Public API:** `SDKConfig.adRequestAuthority` (optional on the builder via `adRequestAuthority(...)`).
+- **Default:** `ssp-bcc-ads.com` (same as Android `DEFAULT_AD_REQUEST_AUTHORITY`).
+- **Do not** pass a full URL that already includes the `/sdk` path **and** query parameters intended for your app — the SDK always uses **`https`**, appends **`/sdk`**, and adds query parameters described below. Passing a short `https://host` or `host:port` prefix without query is fine; values are **normalized** (trim, up to three rounds of percent-decoding, strip `http(s)://`, first path segment, and query) before use.
+
+### Resolved base URL
+
+- **Scheme:** always `https`.
+- **Path:** `/sdk` (e.g. `https://ssp-bcc-ads.com/sdk`).
+- **Port:** `host:port` is parsed so the port is a real URI port (e.g. `127.0.0.1:8787` → TCP 8787), not a single string that would encode as `host%3Aport` in the authority.
+
+### HTTP method and response
+
+- **Method:** `GET`.
+- **Body:** JSON, UTF-8.
+- **Fields used by the SDK:** `adm` (string) and `position` (int), consistent with the Android `BidscubeResponseParser`.
+
+### Query parameters by ad format
+
+| Format | `c` / `m` | Notes |
+|--------|-----------|--------|
+| **Banner / image** | `c=b`, `m=api`, `res=js`, `app=1` | Plus: `placementId`, `bundle`, `name`, `app_store_url`, `language`, `deviceWidth`, `deviceHeight`, `ua`, `ifa`, `dnt`. |
+| **Video** | `c=v`, `m=xml`, `app=1` | Plus: `id`, `w`/`h` (screen size from device), `bundle`, `name`, `app_version`, `ifa`, `dnt`, `app_store_url`, `ua`, `language`, `deviceWidth`, `deviceHeight`. |
+| **Native** | `c=n`, `m=s`, `app=1` | Plus: `id`, `bundle`, `name`, `app_version`, `ifa`, `dnt`, `app_store_url`, `ua`, `gdpr`, `gdpr_consent`, `us_privacy`, `ccpa`, `coppa`, `language`, `deviceWidth`, `deviceHeight`, `w`/`h` (logical size from the native ad view). Some optional strings use the literal `"null"` when empty (Android parity). |
+
+### AppLovin MAX / mediation
+
+On Android, the adapter may read **`request_authority`** or **`ssp_host`** from server parameters and pass them into **`adRequestAuthority`**. Use the **same keys and normalization** in your network configuration. Document for publishers: only **host**, **`host:port`**, or a short **`https://`** prefix **without** query strings.
+
+### Example app: custom authority (e.g. local mock / tunnel)
+
+```bash
+flutter run --dart-define=BIDSCUBE_SSP_AUTHORITY=127.0.0.1:8787
+```
+
+```dart
+const _authority = String.fromEnvironment('BIDSCUBE_SSP_AUTHORITY', defaultValue: '');
+// ...
+SDKConfig.builder()
+    .adRequestAuthority(_authority.isEmpty ? null : _authority)
+    .build();
+```
+
+### Integration testing
+
+Point `adRequestAuthority` at a mock SSP (e.g. a Python script or HTTPS tunnel via **cloudflared** / **ngrok**) the same way as in the Bidscube Android project README: the client must reach `https://<authority>/sdk?…` with the query layout above.
+
+---
+
 ## Troubleshooting
 
-### Common Issues
+### Ads not loading
 
-1. **Ad not loading**:
+- Network connectivity
+- Correct **placement ID**
+- Console / `SDKLogger` output
 
-   - Check network connectivity
-   - Verify placement ID is correct
-   - Check console logs for error messages
+### Video not playing
 
-2. **Video ads not playing**:
+- Platform video / IMA support
+- Valid **VAST** and reachable media URLs
 
-   - Ensure platform-specific video support
-   - Check VAST response format
-   - Verify video URL is accessible
+### Build errors
 
-3. **Build errors**:
-   - Ensure Flutter 3.19+ / Dart 3.5+ (see `pubspec.yaml` and `.github/flutter-version` for CI)
-   - Check platform-specific requirements
-   - Verify all dependencies are properly configured
+- Flutter **3.19+** / Dart **3.5+** ([`pubspec.yaml`](pubspec.yaml), [`.github/flutter-version`](.github/flutter-version))
+- Android / iOS dependency versions vs adapter docs
+- `flutter clean`, then `flutter pub get` / `pod install`
 
-### Debug Mode
-
-Enable debug mode for detailed logging:
+### Debug mode
 
 ```dart
 final config = SDKConfig.builder()
@@ -485,26 +572,25 @@ final config = SDKConfig.builder()
     .build();
 ```
 
-## Building the Package
+---
 
-To build the package for production:
+## Building the package
 
 ```bash
-# Run tests
 flutter test
-
-# Analyze code
 flutter analyze
-
-# Build for all platforms
-flutter build apk --release
-flutter build ios --release
+flutter build apk --release   # example app
+flutter build ios --release   # example app
 ```
 
-## License
-
-This project is licensed under the MIT License — see `LICENSE`.
+---
 
 ## Changelog
 
-See `CHANGELOG.md`.
+See [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+## License
+
+This project is licensed under the **MIT License** — see [`LICENSE`](LICENSE).

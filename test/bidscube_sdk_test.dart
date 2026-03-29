@@ -21,6 +21,8 @@ void main() {
       expect(config.defaultAdTimeout, 30000);
       expect(config.defaultAdPosition, AdPosition.header);
       expect(config.enableTestMode, true);
+      expect(config.adRequestAuthority, Constants.defaultAdRequestAuthority);
+      expect(config.baseURL, Constants.defaultSdkBaseUrl);
     });
 
     test('SDKConfig should convert to map correctly', () {
@@ -31,10 +33,13 @@ void main() {
       expect(map['defaultAdPosition'], 'header');
       expect(map['enableTestMode'], true);
       expect(map['integrationMode'], 'direct');
+      expect(map['adRequestAuthority'], Constants.defaultAdRequestAuthority);
+      expect(map['baseURL'], Constants.defaultSdkBaseUrl);
     });
 
     test('SDKConfig should be created from map correctly', () {
       final map = {
+        'adRequestAuthority': 'ssp-bcc-ads.com',
         'baseURL': 'https://ssp-bcc-ads.com/sdk',
         'enableLogging': false,
         'enableDebugMode': true,
@@ -45,6 +50,7 @@ void main() {
       };
 
       final configFromMap = SDKConfig.fromMap(map);
+      expect(configFromMap.adRequestAuthority, 'ssp-bcc-ads.com');
       expect(configFromMap.baseURL, 'https://ssp-bcc-ads.com/sdk');
       expect(configFromMap.enableLogging, false);
       expect(configFromMap.enableDebugMode, true);

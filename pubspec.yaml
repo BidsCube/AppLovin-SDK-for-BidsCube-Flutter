@@ -1,6 +1,6 @@
 name: bidscube_sdk_flutter
 description: "BidsCube Flutter plugin: native Android/iOS bridge for AppLovin MAX mediation, plus direct SDK widgets (image, video, native, banner) when not in mediation mode."
-version: 1.0.0
+version: 1.0.1
 homepage: https://github.com/bidscube/bidscube-sdk-flutter
 repository: https://github.com/bidscube/bidscube-sdk-flutter
 issue_tracker: https://github.com/bidscube/bidscube-sdk-flutter/issues

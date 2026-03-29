@@ -1,10 +1,24 @@
+import 'ad_request_authority_normalizer.dart';
 import 'ad_position.dart';
 import 'bidscube_integration_mode.dart';
+import 'ssp_ad_uri_helper.dart';
 
 /// SDK Configuration for BidsCube Flutter SDK
 class SDKConfig {
-  /// Base URL for API requests
-  final String baseURL;
+  /// Normalized SSP authority (host or `host:port`, never a path or query).
+  ///
+  /// Default matches Android `DeviceInfo.DEFAULT_AD_REQUEST_AUTHORITY`
+  /// (`ssp-bcc-ads.com`). The SDK builds requests as `https` + [adRequestAuthority] + `/sdk`.
+  ///
+  /// Do **not** pass a full URL with query parameters — the SDK appends `/sdk`
+  /// and query fields. You may pass a host, `host:port`, or a short `https://` prefix
+  /// without path/query; values are normalized like the Android SDK.
+  final String adRequestAuthority;
+
+  /// Resolved base URL for the SSP `/sdk` endpoint (`https` + [adRequestAuthority] + `/sdk`).
+  ///
+  /// Exposed for native bridges and HTTP clients that expect a full URL string.
+  String get baseURL => buildSdkBaseUrlString(adRequestAuthority);
 
   /// Enable console logging
   final bool enableLogging;
@@ -25,7 +39,7 @@ class SDKConfig {
   final BidscubeIntegrationMode integrationMode;
 
   const SDKConfig({
-    required this.baseURL,
+    required this.adRequestAuthority,
     this.enableLogging = true,
     this.enableDebugMode = false,
     this.defaultAdTimeout = 30000,
@@ -36,8 +50,20 @@ class SDKConfig {
 
   /// Create SDKConfig from Map
   factory SDKConfig.fromMap(Map<String, dynamic> map) {
+    final authRaw = map['adRequestAuthority'] as String?;
+    final baseRaw = map['baseURL'] as String?;
+
+    String authority;
+    if (authRaw != null && authRaw.trim().isNotEmpty) {
+      authority = normalizeAdRequestAuthority(authRaw);
+    } else if (baseRaw != null && baseRaw.trim().isNotEmpty) {
+      authority = normalizeAdRequestAuthority(baseRaw);
+    } else {
+      authority = normalizeAdRequestAuthority(null);
+    }
+
     return SDKConfig(
-      baseURL: map['baseURL'] ?? '',
+      adRequestAuthority: authority,
       enableLogging: map['enableLogging'] ?? true,
       enableDebugMode: map['enableDebugMode'] ?? false,
       defaultAdTimeout: map['defaultAdTimeout'] ?? 30000,
@@ -55,6 +81,7 @@ class SDKConfig {
   /// Convert SDKConfig to Map
   Map<String, dynamic> toMap() {
     return {
+      'adRequestAuthority': adRequestAuthority,
       'baseURL': baseURL,
       'enableLogging': enableLogging,
       'enableDebugMode': enableDebugMode,
@@ -71,7 +98,7 @@ class SDKConfig {
 
 /// Builder class for SDKConfig
 class SDKConfigBuilder {
-  String _baseURL = 'https://ssp-bcc-ads.com/sdk';
+  String? _adRequestAuthorityInput;
   bool _enableLogging = true;
   bool _enableDebugMode = false;
   int _defaultAdTimeout = 30000;
@@ -79,9 +106,19 @@ class SDKConfigBuilder {
   bool _enableTestMode = false;
   BidscubeIntegrationMode _integrationMode = BidscubeIntegrationMode.directSdk;
 
-  /// Set base URL
+  /// Sets the SSP ad-request **authority** (host or `host:port`).
+  ///
+  /// Default: production `ssp-bcc-ads.com`. Pass `null` or omit to keep the default.
+  /// The value is normalized (trim, percent-decode, strip `https://`, path, and query).
+  SDKConfigBuilder adRequestAuthority(String? authority) {
+    _adRequestAuthorityInput = authority;
+    return this;
+  }
+
+  /// Legacy: accepts a full `https://host/sdk` URL or host-only; normalized to
+  /// [SDKConfig.adRequestAuthority] the same way as on Android.
   SDKConfigBuilder baseURL(String url) {
-    _baseURL = url;
+    _adRequestAuthorityInput = url;
     return this;
   }
 
@@ -123,8 +160,9 @@ class SDKConfigBuilder {
 
   /// Build SDKConfig
   SDKConfig build() {
+    final authority = normalizeAdRequestAuthority(_adRequestAuthorityInput);
     return SDKConfig(
-      baseURL: _baseURL,
+      adRequestAuthority: authority,
       enableLogging: _enableLogging,
       enableDebugMode: _enableDebugMode,
       defaultAdTimeout: _defaultAdTimeout,

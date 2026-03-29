@@ -1,11 +1,16 @@
 /// Constants for BidsCube Flutter SDK
 /// Similar to iOS version but adapted for Flutter
 class Constants {
-  /// Base URL for API requests
-  /// Use 10.0.2.2 for Android emulator to access host's localhost
-  /// Use localhost or 127.0.0.1 for iOS simulator
-  static const String baseURL =
-      'https://ssp-bcc-ads.com/sdk'; // "http://10.0.2.2:3000/api/sdk"; //'https://ssp-bcc-ads.com/sdk';
+  /// Default SSP host (authority) for ad requests — matches Android
+  /// `DeviceInfo.DEFAULT_AD_REQUEST_AUTHORITY` / `SDKConfig` default.
+  ///
+  /// Resolved request URL is always `https` + this authority + `/sdk`; use
+  /// [SDKConfig.adRequestAuthority] or `adRequestAuthority(...)` on the
+  /// config builder to override.
+  static const String defaultAdRequestAuthority = 'ssp-bcc-ads.com';
+
+  /// Default resolved SSP `/sdk` URL (same as [defaultSdkBaseUrlString] for the default authority).
+  static const String defaultSdkBaseUrl = 'https://ssp-bcc-ads.com/sdk';
 
   /// Default timeout in milliseconds
   static const int defaultTimeoutMs = 30000;
@@ -31,7 +36,7 @@ class Constants {
   static const String userAgentPrefix = 'BidscubeSDK-Flutter';
 
   /// SDK Version
-  static const String sdkVersion = "1.0.0";
+  static const String sdkVersion = "1.0.1";
 
   /// Error Codes
   static const int errorCodeInvalidURL = -1;
@@ -147,7 +152,7 @@ class Constants {
   static const String defaultPlatform = 'Flutter';
 
   /// WebView Constants
-  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.0.0";
+  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.0.1";
   static const String webViewJavaScriptChannel = 'flutter_inappwebview';
 
   /// Ad View Constants

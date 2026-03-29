@@ -37,3 +37,8 @@ export 'src/core/constants.dart';
 export 'src/core/vast_parser.dart';
 export 'src/core/ad_request_client.dart';
 export 'src/core/url_builder.dart';
+export 'src/core/ad_request_authority_normalizer.dart';
+export 'src/core/ssp_ad_uri_helper.dart';
+export 'src/network/image_ad_url_builder.dart';
+export 'src/network/video_ad_url_builder.dart';
+export 'src/network/native_ad_url_builder.dart';

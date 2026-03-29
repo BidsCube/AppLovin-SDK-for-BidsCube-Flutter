@@ -2,6 +2,13 @@ import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+/// Optional override for local mock SSP / tunnel (see README "Ad request endpoint").
+/// Run: `flutter run --dart-define=BIDSCUBE_SSP_AUTHORITY=127.0.0.1:8787`
+const String _kSspAuthorityOverride = String.fromEnvironment(
+  'BIDSCUBE_SSP_AUTHORITY',
+  defaultValue: '',
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final nativeMobile = !kIsWeb &&
@@ -10,6 +17,9 @@ Future<void> main() async {
   await BidscubeSDK.initialize(
     config: SDKConfig.builder()
         .enableLogging(true)
+        .adRequestAuthority(
+          _kSspAuthorityOverride.isEmpty ? null : _kSspAuthorityOverride,
+        )
         // AppLovin MAX: .integrationMode(BidscubeIntegrationMode.appLovinMaxMediation)
         .build(),
     // Native Bidscube on Android/iOS; Web/Desktop use Flutter-only (HTTP/WebView).

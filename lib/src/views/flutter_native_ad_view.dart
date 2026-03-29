@@ -106,6 +106,8 @@ class _FlutterNativeAdViewState extends State<FlutterNativeAdView> {
         placementId: widget.placementId,
         adType: widget.adType,
         position: widget.position,
+        nativeLogicalWidth: widget.width.round(),
+        nativeLogicalHeight: widget.height.round(),
       );
 
       if (apiURL == null) {

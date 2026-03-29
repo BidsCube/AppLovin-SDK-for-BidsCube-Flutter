@@ -135,6 +135,21 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
      * [SDKConfig.Builder] methods (API differs by bidscube-sdk version).
      */
     private fun applyOptionalFlutterConfig(builder: SDKConfig.Builder, map: Map<String, Any?>) {
+        val adRequestAuthority = (map["adRequestAuthority"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        if (adRequestAuthority != null) {
+            val invokedAuth = invokeFirstMatchingMethod(
+                builder,
+                listOf("adRequestAuthority", "setAdRequestAuthority", "setRequestAuthority"),
+                arrayOf(String::class.java),
+                arrayOf(adRequestAuthority),
+            )
+            if (!invokedAuth) {
+                Log.w(
+                    TAG,
+                    "SDKConfig.Builder has no adRequestAuthority setter; Dart adRequestAuthority ignored on this native SDK version",
+                )
+            }
+        }
         val baseURL = (map["baseURL"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         if (baseURL != null) {
             val invoked = invokeFirstMatchingMethod(

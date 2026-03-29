@@ -39,7 +39,7 @@ class ImaVastVideoAdView extends StatefulWidget {
     this.callback,
     this.width = 320,
     this.height = 240,
-    this.baseUrl = Constants.baseURL,
+    this.baseUrl = Constants.defaultSdkBaseUrl,
     this.adType = AdType.video,
     this.position = AdPosition.unknown,
     this.borderRadius,

@@ -16,14 +16,14 @@ class AdRequestClient {
 
   /// Creates an [AdRequestClient].
   ///
-  /// [baseUrl] sets the base URL for ad requests. Defaults to [Constants.baseURL].
+  /// [baseUrl] sets the base URL for ad requests. Defaults to [Constants.defaultSdkBaseUrl].
   /// [timeout] sets the request timeout. Defaults to 30 seconds.
   /// [defaultHeaders] sets default headers for all requests.
   AdRequestClient({
     String? baseUrl,
     Duration? timeout,
     Map<String, String>? defaultHeaders,
-  })  : baseUrl = baseUrl ?? Constants.baseURL,
+  })  : baseUrl = baseUrl ?? Constants.defaultSdkBaseUrl,
         timeout = timeout ?? _defaultTimeout,
         _defaultHeaders = defaultHeaders ?? {};
 
@@ -42,6 +42,7 @@ class AdRequestClient {
         placementId: placementId,
         adType: AdType.native,
         position: AdPosition.unknown,
+        baseURL: baseUrl,
       );
 
       if (apiURL == null) {
@@ -51,7 +52,6 @@ class AdRequestClient {
       final uri = Uri.parse(apiURL);
       final userAgent = await URLBuilder.buildBrowserUserAgent();
       final requestHeaders = {
-        'Content-Type': 'application/json',
         'User-Agent': userAgent,
         ..._defaultHeaders,
         ...additionalHeaders ?? {},
@@ -93,6 +93,7 @@ class AdRequestClient {
         placementId: placementId,
         adType: AdType.banner,
         position: AdPosition.unknown,
+        baseURL: baseUrl,
       );
 
       if (apiURL == null) {
@@ -102,7 +103,6 @@ class AdRequestClient {
       final uri = Uri.parse(apiURL);
       final userAgent = await URLBuilder.buildBrowserUserAgent();
       final requestHeaders = {
-        'Content-Type': 'application/json',
         'User-Agent': userAgent,
         ..._defaultHeaders,
         ...additionalHeaders ?? {},
@@ -144,6 +144,7 @@ class AdRequestClient {
         placementId: placementId,
         adType: AdType.video,
         position: AdPosition.unknown,
+        baseURL: baseUrl,
       );
 
       if (apiURL == null) {
@@ -153,7 +154,6 @@ class AdRequestClient {
       final uri = Uri.parse(apiURL);
       final userAgent = await URLBuilder.buildBrowserUserAgent();
       final requestHeaders = {
-        'Content-Type': 'application/xml',
         'User-Agent': userAgent,
         ..._defaultHeaders,
         ...additionalHeaders ?? {},
@@ -187,8 +187,8 @@ class AdRequestClient {
   ) {
     if (callback?.onAdRenderOverride != null) {
       callback?.onAdRenderOverride!(
-        data['adm'],
         placementId,
+        data['adm']?.toString() ?? '',
         AdPositionExtension.fromValue(data['position'] ?? 0),
       );
     } else {

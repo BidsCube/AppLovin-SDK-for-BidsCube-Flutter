@@ -3,13 +3,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import '../bidscube_sdk.dart';
+import '../network/image_ad_url_builder.dart';
+import '../network/native_ad_url_builder.dart';
+import '../network/video_ad_url_builder.dart';
 import '../core/logger.dart';
 import '../core/ad_type.dart';
 import '../core/ad_position.dart';
 import '../core/constants.dart';
+import 'ssp_ad_uri_helper.dart';
 
 /// URL Builder for constructing API requests similar to iOS version
 class URLBuilder {
+  /// Resolves the `/sdk` base URL: explicit [baseURL], then [BidscubeSDK.config], then default.
+  static String effectiveBaseUrl([String? baseURL]) {
+    if (baseURL != null && baseURL.isNotEmpty) {
+      return baseURL;
+    }
+    if (BidscubeSDK.isInitialized) {
+      final c = BidscubeSDK.config;
+      if (c != null) return c.baseURL;
+    }
+    return defaultSdkBaseUrlString();
+  }
+
   /// Build ad request URL for Flutter
   static Future<String?> buildAdRequestURL({
     required String placementId,
@@ -19,19 +36,21 @@ class URLBuilder {
     bool debug = false,
     String? ctaText,
     String? baseURL,
+    int? nativeLogicalWidth,
+    int? nativeLogicalHeight,
   }) async {
     try {
-      final base = baseURL ?? Constants.baseURL;
+      final base = effectiveBaseUrl(baseURL);
       final uri = Uri.parse(base);
 
-      final queryParams = await _buildCommonQueryParams(
+      final queryParams = await _buildTypedQueryParams(
         placementId: placementId,
         adType: adType,
+        nativeLogicalWidth: nativeLogicalWidth,
+        nativeLogicalHeight: nativeLogicalHeight,
       );
 
-      queryParams.addAll(_buildPrivacyQueryParams());
-
-      if (ctaText != null) {
+      if (adType == AdType.banner && ctaText != null) {
         queryParams['cta_text'] = ctaText;
       }
 
@@ -47,63 +66,81 @@ class URLBuilder {
     }
   }
 
-  /// Build common query parameters
-  static Future<Map<String, String>> _buildCommonQueryParams({
+  static Future<Map<String, String>> _buildTypedQueryParams({
     required String placementId,
     required AdType adType,
+    int? nativeLogicalWidth,
+    int? nativeLogicalHeight,
   }) async {
     final deviceInfo = await _getDeviceInfo();
     final packageInfo = await PackageInfo.fromPlatform();
 
-    final params = <String, String>{
-      'placementId': placementId,
-      'app': '1',
-      'bundle': packageInfo.packageName,
-      'name': packageInfo.appName,
-      'app_store_url': _getAppStoreURL(packageInfo.packageName),
-      'language': deviceInfo['language'] ?? 'en',
-      'deviceWidth': deviceInfo['deviceWidth'] ?? '1',
-      'deviceHeight': deviceInfo['deviceHeight'] ?? '1',
-      'ua': deviceInfo['userAgent'] ?? 'Flutter',
-      'ifa': deviceInfo['advertisingId'] ?? '',
-      'dnt': deviceInfo['doNotTrack'] ?? '0',
-    };
+    final dw = deviceInfo['deviceWidth'] ?? '1';
+    final dh = deviceInfo['deviceHeight'] ?? '1';
+    final bundle = packageInfo.packageName;
+    final name = packageInfo.appName;
+    final appStoreUrl = _getAppStoreURL(packageInfo.packageName);
+    final language = deviceInfo['language'] ?? 'en';
+    final ua = deviceInfo['userAgent'] ?? 'Flutter';
+    final ifa = deviceInfo['advertisingId'] ?? '';
+    final dnt = deviceInfo['doNotTrack'] ?? '0';
 
-    // Add ad type specific parameters
     switch (adType) {
       case AdType.banner:
-        params['c'] = Constants.adTypeImage;
-        params['m'] = Constants.methodApi;
-        params['res'] = Constants.responseFormatJs;
-        break;
+        return ImageAdUrlBuilder.build(
+          placementId: placementId,
+          bundle: bundle,
+          name: name,
+          appStoreUrl: appStoreUrl,
+          language: language,
+          deviceWidth: dw,
+          deviceHeight: dh,
+          ua: ua,
+          ifa: ifa,
+          dnt: dnt,
+        );
       case AdType.video:
-        params['id'] = placementId;
-        params['c'] = Constants.adTypeVideo;
-        params['m'] = Constants.methodXml;
-        params['w'] = deviceInfo['deviceWidth'] ?? Constants.defaultDeviceWidth;
-        params['h'] =
-            deviceInfo['deviceHeight'] ?? Constants.defaultDeviceHeight;
-        params['app_version'] = packageInfo.version;
-        break;
+        return VideoAdUrlBuilder.build(
+          placementId: placementId,
+          bundle: bundle,
+          name: name,
+          appVersion: packageInfo.version,
+          ifa: ifa,
+          dnt: dnt,
+          appStoreUrl: appStoreUrl,
+          ua: ua,
+          language: language,
+          deviceWidth: dw,
+          deviceHeight: dh,
+          screenWidth: dw,
+          screenHeight: dh,
+        );
       case AdType.native:
-        params['c'] = Constants.adTypeNative;
-        params['m'] = Constants.methodApi;
-        params['res'] = Constants.responseFormatJson;
-        break;
+        final lw =
+            (nativeLogicalWidth ?? int.tryParse(dw) ?? 0).toString();
+        final lh =
+            (nativeLogicalHeight ?? int.tryParse(dh) ?? 0).toString();
+        return NativeAdUrlBuilder.build(
+          placementId: placementId,
+          bundle: bundle,
+          name: name,
+          appVersion: packageInfo.version,
+          ifa: ifa,
+          dnt: dnt,
+          appStoreUrl: appStoreUrl,
+          ua: ua,
+          gdpr: _getGdprStatus(),
+          gdprConsent: Constants.defaultGdprConsent,
+          usPrivacy: Constants.defaultUsPrivacy,
+          ccpa: Constants.defaultCcpa,
+          coppa: Constants.defaultCoppa,
+          language: language,
+          deviceWidth: dw,
+          deviceHeight: dh,
+          logicalWidth: lw,
+          logicalHeight: lh,
+        );
     }
-
-    return params;
-  }
-
-  /// Build privacy query parameters
-  static Map<String, String> _buildPrivacyQueryParams() {
-    return {
-      Constants.privacyGdprKey: _getGdprStatus(),
-      Constants.privacyGdprConsentKey: Constants.defaultGdprConsent,
-      Constants.privacyUsPrivacyKey: Constants.defaultUsPrivacy,
-      Constants.privacyCcpaKey: Constants.defaultCcpa,
-      Constants.privacyCoppaKey: Constants.defaultCoppa,
-    };
   }
 
   /// Get device information
