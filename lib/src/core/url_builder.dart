@@ -116,10 +116,8 @@ class URLBuilder {
           screenHeight: dh,
         );
       case AdType.native:
-        final lw =
-            (nativeLogicalWidth ?? int.tryParse(dw) ?? 0).toString();
-        final lh =
-            (nativeLogicalHeight ?? int.tryParse(dh) ?? 0).toString();
+        final lw = (nativeLogicalWidth ?? int.tryParse(dw) ?? 0).toString();
+        final lh = (nativeLogicalHeight ?? int.tryParse(dh) ?? 0).toString();
         return NativeAdUrlBuilder.build(
           placementId: placementId,
           bundle: bundle,
