@@ -7,6 +7,7 @@ Flutter plugin for **BidsCube** on **Android** / **iOS** with **AppLovin MAX** m
 - [Use as a Flutter library](#use-as-a-flutter-library)
 - [Features](#features)
 - [Requirements](#requirements)
+- [Self-contained native SDK](#self-contained-native-sdk)
 - [AppLovin MAX (mediation)](#applovin-max-mediation)
 - [Releasing (maintainers)](#releasing-maintainers)
 - [Installation](#installation)
@@ -32,7 +33,7 @@ Add the dependency, then import the **library barrel** (the main public entry):
 ```yaml
 # pubspec.yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.1
+  bidscube_sdk_flutter: ^1.0.2
   # Local development:
   # bidscube_sdk_flutter:
   #   path: path/to/AppLovin-SDK-Flutter
@@ -42,7 +43,7 @@ dependencies:
 import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
 ```
 
-The package is a **Flutter plugin** (`flutter.plugin` in [`pubspec.yaml`](pubspec.yaml)): **Android** (`BidscubeSdkFlutterPlugin`) and **iOS** (`BidscubeSdkPlugin`) register `MethodChannel('bidscube_sdk')` and **PlatformViews**. Run `flutter pub get`; on iOS run `pod install` under `ios/`. Native Bidscube artifacts are resolved via [`android/build.gradle`](android/build.gradle) and [`ios/bidscube_sdk_flutter.podspec`](ios/bidscube_sdk_flutter.podspec).
+The package is a **Flutter plugin** (`flutter.plugin` in [`pubspec.yaml`](pubspec.yaml)): **Android** (`BidscubeSdkFlutterPlugin`) and **iOS** (`BidscubeSdkPlugin`) register `MethodChannel('bidscube_sdk')` and **PlatformViews**. Run `flutter pub get`; on iOS run `pod install` under `ios/`. Native Bidscube artifacts can live **inside this repo** (see [Self-contained native SDK](#self-contained-native-sdk)) or resolve from Maven / CocoaPods. The plugin also pulls **AppLovin MAX SDK 13.x** on Android and iOS so you do not need a separate AppLovin dependency for adapter compilation (your app may still add [`applovin_max`](https://pub.dev/packages/applovin_max) for Dart APIs).
 
 ---
 
@@ -63,9 +64,28 @@ The package is a **Flutter plugin** (`flutter.plugin` in [`pubspec.yaml`](pubspe
 | Requirement | Details |
 |-------------|---------|
 | **Flutter / Dart** | Flutter **3.19.0+**, Dart **3.5.0+** — see [`pubspec.yaml`](pubspec.yaml); CI pins a Flutter SDK in [`.github/flutter-version`](.github/flutter-version) |
-| **Android** | **API 24+** with native SDK; use **`mavenLocal()`** and a local publish from your native SDK tree when needed — [`android/libs/README.md`](android/libs/README.md) |
-| **iOS** | **13+** |
+| **Android** | **API 24+**; native Bidscube via **`android/libs/*.aar`** (name contains `bidscube`) or Maven `com.bidscube:bidscube-sdk` — [`android/libs/README.md`](android/libs/README.md) |
+| **iOS** | **13.0+** (required for AppLovin MAX **13.x** shipped with this plugin) |
+| **AppLovin MAX** | **13.0+** on both platforms (`com.applovin:applovin-sdk` **13.6.0** on Android, `AppLovinSDK` **`~> 13.0`** on iOS) |
 | **Web / desktop** | Same as Flutter platform support for **direct** SDK usage where applicable |
+
+---
+
+## Self-contained native SDK
+
+You can ship the **main Bidscube native SDK** together with this Flutter package so integrators do **not** maintain a second Android/iOS project or Maven publish step.
+
+### Android
+
+- Place a release **`*.aar`** under [`android/libs/`](android/libs/) whose filename contains **`bidscube`** (case-insensitive), e.g. `bidscube-sdk-release.aar`.
+- [`android/build.gradle`](android/build.gradle) prefers that file over `com.bidscube:bidscube-sdk:1.0.0` from Maven.
+
+### iOS
+
+- Add one or more **`*.xcframework`** bundles under [`ios/Frameworks/`](ios/Frameworks/).
+- [`ios/bidscube_sdk_flutter.podspec`](ios/bidscube_sdk_flutter.podspec) sets `vendored_frameworks` for every `Frameworks/*.xcframework`. If the directory is empty, it falls back to the **`bidscubeSdk`** pod (`1.0.0`).
+
+See [`android/libs/README.md`](android/libs/README.md) and [`ios/Frameworks/README.md`](ios/Frameworks/README.md) for details.
 
 ---
 
@@ -109,7 +129,7 @@ await BidscubeSDK.initialize(
 - Use `useFlutterOnly: false` for mediation.
 - Do **not** use `FlutterOnlyBidscube` with `appLovinMaxMediation`.
 
-**Dependencies:** `bidscube_sdk_flutter` + [`applovin_max`](https://pub.dev/packages/applovin_max) (or native MAX SDK) + your **Bidscube MAX adapter** artifacts per integration guide.
+**Dependencies:** `bidscube_sdk_flutter` already declares **AppLovin MAX SDK 13.x** natively; add [`applovin_max`](https://pub.dev/packages/applovin_max) if you want Dart APIs for load/show. Your **Bidscube mediation adapter** is expected to live inside the vendored / Maven Bidscube SDK (same as the standalone native integration guide).
 
 **Android app**
 
@@ -149,7 +169,7 @@ See [`RELEASE.md`](RELEASE.md) — tags, pub.dev OIDC, GitHub Release. Workflow:
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.1
+  bidscube_sdk_flutter: ^1.0.2
 ```
 
 For **mediation**, add native Bidscube + AppLovin MAX + your Bidscube MAX adapter (see [AppLovin MAX (mediation)](#applovin-max-mediation)).

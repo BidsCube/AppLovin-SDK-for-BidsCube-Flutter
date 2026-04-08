@@ -31,7 +31,7 @@ class FlutterOnlyBidscube extends BidscubePlatform {
       _adClient = AdRequestClient(
         baseUrl: config.baseURL,
         timeout: Duration(milliseconds: config.defaultAdTimeout),
-        defaultHeaders: {'X-SDK-Version': '1.0.1', 'X-Platform': 'Flutter'},
+        defaultHeaders: {'X-SDK-Version': '1.0.2', 'X-Platform': 'Flutter'},
       );
 
       SDKLogger.info('BidsCube Flutter-only SDK initialized successfully');

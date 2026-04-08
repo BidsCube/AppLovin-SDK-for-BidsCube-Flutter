@@ -1,5 +1,5 @@
 group = "com.bidscube.sdk.flutter"
-version = "1.0.0"
+version = "1.0.2"
 
 buildscript {
     ext.kotlin_version = "1.9.22"
@@ -51,12 +51,30 @@ android {
     }
 }
 
+def bidscubeLocalAar = null
+def libsDir = file("${rootDir}/libs")
+if (libsDir.isDirectory()) {
+    def candidates = libsDir.listFiles()?.findAll { f ->
+        f.isFile() && f.name.endsWith(".aar") && f.name.toLowerCase().contains("bidscube")
+    }
+    if (candidates != null && !candidates.isEmpty()) {
+        bidscubeLocalAar = candidates.sort { it.name }.first()
+    }
+}
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.3"
-    // Resolve from Maven Central when published, or from mavenLocal() after:
-    //   cd <bidscube-android-sdk> && ./gradlew :sdk:publishReleasePublicationToMavenLocal
-    implementation "com.bidscube:bidscube-sdk:1.0.0@aar"
+    if (bidscubeLocalAar != null) {
+        implementation files(bidscubeLocalAar)
+        println "bidscube_sdk_flutter: using local Bidscube AAR: ${bidscubeLocalAar.name}"
+    } else {
+        // Maven Central / mavenLocal — see android/libs/README.md
+        implementation "com.bidscube:bidscube-sdk:1.0.0@aar"
+        println "bidscube_sdk_flutter: using Maven dependency com.bidscube:bidscube-sdk:1.0.0"
+    }
+    // AppLovin MAX 13.x (mediation adapters); host apps may override via resolutionStrategy if needed.
+    implementation "com.applovin:applovin-sdk:13.6.0"
     // Transitive requirements of bidscube-sdk (see native SDK gradle version catalog).
     implementation "androidx.media3:media3-common:1.4.1"
     implementation "androidx.media3:media3-ui:1.4.1"

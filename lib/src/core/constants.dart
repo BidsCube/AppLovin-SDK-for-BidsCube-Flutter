@@ -36,7 +36,7 @@ class Constants {
   static const String userAgentPrefix = 'BidscubeSDK-Flutter';
 
   /// SDK Version
-  static const String sdkVersion = "1.0.1";
+  static const String sdkVersion = "1.0.2";
 
   /// Error Codes
   static const int errorCodeInvalidURL = -1;
@@ -152,7 +152,7 @@ class Constants {
   static const String defaultPlatform = 'Flutter';
 
   /// WebView Constants
-  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.0.1";
+  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.0.2";
   static const String webViewJavaScriptChannel = 'flutter_inappwebview';
 
   /// Ad View Constants

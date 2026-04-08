@@ -1,15 +1,27 @@
-# Android native SDK resolution
+# Android — Bidscube SDK resolution
 
-The Flutter plugin depends on **`com.bidscube:bidscube-sdk:1.0.0@aar`**.
+This plugin is **self-contained** when you ship the native SDK inside the repo.
 
-- **After the artifact is on Maven Central**, no extra steps are needed.
-- **Local / monorepo development**: publish the SDK to your machine’s Maven Local once (or after SDK changes):
+## Option A — Local AAR (recommended for monorepo / air-gapped builds)
 
-```bash
-cd <path-to-bidscube-android-sdk>
-./gradlew :sdk:publishReleasePublicationToMavenLocal
-```
+1. Copy the release AAR from your Bidscube Android SDK build, e.g.  
+   `sdk/build/outputs/aar/sdk-release.aar`
+2. Rename and place it under **`android/libs/`** with **`bidscube`** in the filename, for example:
+   - `bidscube-sdk-release.aar`, or  
+   - `bidscube-sdk-1.0.0.aar`
 
-Gradle is configured with `mavenLocal()` in the plugin’s `android/build.gradle` and in the example app’s `android/build.gradle.kts`.
+The Gradle script picks the first `*.aar` in `libs/` whose name contains `bidscube` (case-insensitive). If none is found, it falls back to Maven:
 
-Keep transitive versions in **`android/build.gradle`** aligned with your native Bidscube SDK’s Gradle version catalog.
+`com.bidscube:bidscube-sdk:1.0.0`
+
+## Option B — Maven
+
+Publish or consume `com.bidscube:bidscube-sdk` from Maven Central / `mavenLocal()` as before. No AAR in `libs/` is required.
+
+## AppLovin MAX
+
+The plugin adds **`com.applovin:applovin-sdk`** **13.0+** so native mediation adapters target the MAX **13.x** line without a separate AppLovin declaration in the host app (you may still add one; Gradle resolves a single version).
+
+## Transitive libraries
+
+Keep the `implementation` lines in [`build.gradle`](../build.gradle) aligned with the native Bidscube SDK’s Gradle catalog when you upgrade the AAR.
