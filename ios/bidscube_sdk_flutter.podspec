@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'bidscube_sdk_flutter'
-  s.version          = '1.0.2'
+  s.version          = '1.0.3'
   s.summary          = 'BidsCube Flutter plugin: AppLovin MAX 13+ mediation + direct ad widgets on Android/iOS.'
   s.description      = <<-DESC
 Flutter plugin bridging to native BidscubeSDK for AppLovin MAX mediation adapters
