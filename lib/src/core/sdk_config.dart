@@ -1,6 +1,7 @@
 import 'ad_request_authority_normalizer.dart';
 import 'ad_position.dart';
 import 'bidscube_integration_mode.dart';
+import 'bidscube_video_player.dart';
 import 'ssp_ad_uri_helper.dart';
 
 /// SDK Configuration for BidsCube Flutter SDK
@@ -38,7 +39,11 @@ class SDKConfig {
   /// Direct SDK vs AppLovin MAX mediation — see [BidscubeIntegrationMode].
   final BidscubeIntegrationMode integrationMode;
 
-  const SDKConfig({
+  /// Flutter-only: when set, [BidscubeSDK.getVideoAdView] uses this widget instead of the
+  /// default IMA player. Ignored by the native bridge (native uses its own player stack).
+  final BidscubeCustomVideoPlayerBuilder? customVideoPlayerBuilder;
+
+  SDKConfig({
     required this.adRequestAuthority,
     this.enableLogging = true,
     this.enableDebugMode = false,
@@ -46,6 +51,7 @@ class SDKConfig {
     this.defaultAdPosition = AdPosition.unknown,
     this.enableTestMode = false,
     this.integrationMode = BidscubeIntegrationMode.directSdk,
+    this.customVideoPlayerBuilder,
   });
 
   /// Create SDKConfig from Map
@@ -75,6 +81,7 @@ class SDKConfig {
       integrationMode: bidscubeIntegrationModeFromWire(
         map['integrationMode'] as String?,
       ),
+      // customVideoPlayerBuilder is not serializable; always null from map.
     );
   }
 
@@ -105,6 +112,7 @@ class SDKConfigBuilder {
   AdPosition _defaultAdPosition = AdPosition.unknown;
   bool _enableTestMode = false;
   BidscubeIntegrationMode _integrationMode = BidscubeIntegrationMode.directSdk;
+  BidscubeCustomVideoPlayerBuilder? _customVideoPlayerBuilder;
 
   /// Sets the SSP ad-request **authority** (host or `host:port`).
   ///
@@ -158,6 +166,14 @@ class SDKConfigBuilder {
     return this;
   }
 
+  /// Flutter-only direct SDK: supply a widget builder to replace the default IMA video player.
+  SDKConfigBuilder customVideoPlayerBuilder(
+    BidscubeCustomVideoPlayerBuilder? builder,
+  ) {
+    _customVideoPlayerBuilder = builder;
+    return this;
+  }
+
   /// Build SDKConfig
   SDKConfig build() {
     final authority = normalizeAdRequestAuthority(_adRequestAuthorityInput);
@@ -169,6 +185,7 @@ class SDKConfigBuilder {
       defaultAdPosition: _defaultAdPosition,
       enableTestMode: _enableTestMode,
       integrationMode: _integrationMode,
+      customVideoPlayerBuilder: _customVideoPlayerBuilder,
     );
   }
 }

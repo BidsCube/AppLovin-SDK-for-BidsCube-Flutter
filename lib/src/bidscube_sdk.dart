@@ -4,6 +4,8 @@ import 'core/callbacks.dart';
 import 'core/ad_type.dart';
 import 'core/ad_position.dart';
 import 'core/bidscube_integration_mode.dart';
+import 'core/sdk_diagnostics.dart';
+import 'core/logger.dart';
 import 'platform/bidscube_platform.dart';
 import 'platform/method_channel_bidscube.dart';
 import 'platform/flutter_only_bidscube.dart';
@@ -33,14 +35,35 @@ class BidscubeSDK {
     _config = config;
     _useFlutterOnly = useFlutterOnly;
 
+    SDKLogger.setEnabled(config.enableLogging);
+    SDKLogger.setDebugMode(config.enableDebugMode);
+    SDKDiagnostics.logInitStart(
+      flutterOnly: useFlutterOnly,
+      integrationMode: config.integrationMode,
+      baseUrl: config.baseURL,
+    );
+
     if (useFlutterOnly) {
       _platform = FlutterOnlyBidscube();
     } else {
       _platform = MethodChannelBidscube();
     }
 
-    await _platform.initialize(config: config);
-    _isInitialized = true;
+    try {
+      await _platform.initialize(config: config);
+      if (useFlutterOnly) {
+        SDKDiagnostics.logInitFlutterOnlyOk();
+      } else {
+        SDKDiagnostics.logInitNativeBridgeOk();
+      }
+      if (config.integrationMode == BidscubeIntegrationMode.appLovinMaxMediation) {
+        SDKDiagnostics.logAppLovinMediationHint();
+      }
+      _isInitialized = true;
+    } catch (e, st) {
+      SDKDiagnostics.logInitFailed(e, st);
+      rethrow;
+    }
   }
 
   /// Check if SDK is initialized

@@ -17,6 +17,8 @@ export 'src/core/ad_position.dart';
 export 'src/core/ad_type.dart';
 export 'src/core/sdk_config.dart';
 export 'src/core/bidscube_integration_mode.dart';
+export 'src/core/bidscube_video_player.dart';
+export 'src/core/sdk_diagnostics.dart';
 export 'src/core/callbacks.dart';
 export 'src/core/logger.dart';
 export 'src/core/position_style.dart';

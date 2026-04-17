@@ -75,9 +75,14 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             BidscubeSDK.initialize(config: sdkConfig)
 
             print("📱 [NATIVE] BidsCube SDK initialized (integrationMode=\(integrationMode))")
+            print("[BidsCubeDiag] bidscube_native init_ok BidscubeSDK.initialize finished")
+            if integrationMode == "appLovinMax" || integrationMode == "levelPlay" {
+                print("[BidsCubeDiag] applovin_max Initialize AppLovin MAX in the iOS app; adapter wiring is native (see Xcode console / adapter docs).")
+            }
             result("ok")
         } catch {
             print("📱 [NATIVE] Error initializing SDK: \(error)")
+            print("[BidsCubeDiag] bidscube_native init_failed \(error.localizedDescription)")
             result(FlutterError(code: "INITIALIZATION_ERROR", message: "Failed to initialize SDK: \(error.localizedDescription)", details: nil))
         }
     }
@@ -121,6 +126,7 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "Placement ID is required", details: nil))
             return
         }
+        print("[BidsCubeDiag] ad_load_native placement=\(placementId) kind=video")
         let adDelegate = makeDelegate()
         let videoAdView = BidscubeSDK.getVideoAdView(placementId, adDelegate)
         registerAndReturnViewId(

@@ -1,3 +1,9 @@
+## 1.0.3+1
+
+* **Version:** `1.0.3+1` (pub semver; same line as “1.0.3 patch 1”). `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
+* **Custom video player (Flutter-only):** `SDKConfig.customVideoPlayerBuilder` / `SDKConfigBuilder.customVideoPlayerBuilder(...)` — host returns a widget instead of the default IMA player when not using `onAdRenderOverride`.
+* **Diagnostics:** `[BidsCubeDiag]` logs via `SDKDiagnostics` — init (native vs Flutter-only), AppLovin MAX hint in mediation mode, ad load phases, IMA lifecycle, native `getVideoAdView` / placement logs (Android Logcat / Xcode). `BidscubeSDK.initialize` applies `enableLogging` / `enableDebugMode` to `SDKLogger` before init.
+
 ## 1.0.3
 
 * README streamlined (removed duplicate install / usage / config blocks; fixed example path `example/`); version **1.0.3**.

@@ -74,6 +74,10 @@ class _ImaVastVideoAdViewState extends State<ImaVastVideoAdView>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    SDKDiagnostics.logVideoPlayerRoute(
+      placementId: widget.placementId,
+      route: 'ima_widget_init',
+    );
     _initializeAdContainer();
     _loadVastAd();
   }
@@ -88,8 +92,16 @@ class _ImaVastVideoAdViewState extends State<ImaVastVideoAdView>
   }
 
   void _initializeAdContainer() {
+    SDKDiagnostics.logAdRequestPhase(
+      placementId: widget.placementId,
+      phase: 'ima_display_container_create',
+    );
     _adDisplayContainer = AdDisplayContainer(
       onContainerAdded: (AdDisplayContainer container) {
+        SDKDiagnostics.logAdRequestPhase(
+          placementId: widget.placementId,
+          phase: 'ima_ads_loader_attached',
+        );
         _adsLoader = AdsLoader(
           container: container,
           onAdsLoaded: (OnAdsLoadedData data) {
@@ -105,6 +117,11 @@ class _ImaVastVideoAdViewState extends State<ImaVastVideoAdView>
 
                   switch (event.type) {
                     case AdEventType.loaded:
+                      SDKDiagnostics.logVideoPlayerRoute(
+                        placementId: widget.placementId,
+                        route: 'ima_ad_loaded',
+                        detail: 'manager.start',
+                      );
                       widget.callback?.onAdLoaded(widget.placementId);
                       manager.start();
                       widget.callback?.onAdDisplayed(widget.placementId);
@@ -160,6 +177,10 @@ class _ImaVastVideoAdViewState extends State<ImaVastVideoAdView>
     widget.callback?.onAdLoading(widget.placementId);
     String vastXml = '';
     try {
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: widget.placementId,
+        phase: 'vast_http_fetch_start',
+      );
       SDKLogger.info('Loading VAST video ad: ${widget.placementId}');
 
       // First, try to get VAST XML from the API using URLBuilder
@@ -258,6 +279,11 @@ class _ImaVastVideoAdViewState extends State<ImaVastVideoAdView>
         await Future.delayed(const Duration(milliseconds: 500));
         // Only request ads when host did not provide an override
         if (widget.callback?.onAdRenderOverride == null) {
+          SDKDiagnostics.logAdRequestPhase(
+            placementId: widget.placementId,
+            phase: 'ima_request_ads',
+            detail: 'vastLen=${vastXml.length}',
+          );
           await _requestAds(_adDisplayContainer, vastXml);
         }
       } else {

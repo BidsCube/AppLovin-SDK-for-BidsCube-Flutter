@@ -17,6 +17,14 @@ Flutter plugin for **BidCube** demand on **Android** and **iOS**, with **AppLovi
 
 In MAX, put the **BidCube placement ID** in the custom network **App ID** field (see below).
 
+### Diagnostics and logging
+
+Search logs for **`[BidsCubeDiag]`** and the **`BidsCubeSDK`** logger name. `BidscubeSDK.initialize` applies `SDKConfig.enableLogging` / `enableDebugMode` to `SDKLogger` before starting the bridge. You will see: **`init_start`** (Flutter-only vs native, integration mode, base URL), **`bidscube_native_bridge`** / **`bidscube_flutter_only`** when init completes, **`applovin_max`** (reminder that MAX must be started in the host app — the plugin only shares native Bidscube), **`ad_load`** / **`video_player`** phases (including IMA vs custom player route), and on **Android Logcat** / **Xcode** native lines **`[BidsCubeDiag] bidscube_native init_ok`** plus **`ad_load_native`** per placement.
+
+### Custom video player (Flutter-only)
+
+With **`useFlutterOnly: true`**, pass **`SDKConfigBuilder.customVideoPlayerBuilder((ctx) => YourWidget(...))`** — `ctx` is a [`BidscubeVideoPlayerBuildContext`](lib/src/core/bidscube_video_player.dart) (`placementId`, `baseUrl`, `callback`, size, etc.). Your widget replaces the default **`ImaVastVideoAdView`**. Does not apply to the native **`getVideoAdView`** PlatformView path. If you only need to render after the HTTP response, **`onAdRenderOverride`** on [`AdCallback`](lib/src/core/callbacks.dart) remains supported.
+
 ---
 
 ## AppLovin MAX — installing
@@ -25,7 +33,7 @@ In MAX, put the **BidCube placement ID** in the custom network **App ID** field 
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.3
+  bidscube_sdk_flutter: ^1.0.3+1
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 

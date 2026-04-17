@@ -7,6 +7,7 @@ import '../core/callbacks.dart';
 import '../core/ad_type.dart';
 import '../core/ad_position.dart';
 import '../core/logger.dart';
+import '../core/sdk_diagnostics.dart';
 
 /// Method channel implementation for BidsCube SDK
 class MethodChannelBidscube extends BidscubePlatform {
@@ -15,6 +16,10 @@ class MethodChannelBidscube extends BidscubePlatform {
   @override
   Future<void> initialize({required SDKConfig config}) async {
     try {
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: '_native_',
+        phase: 'methodChannel_initialize_invoke',
+      );
       await _channel.invokeMethod('initialize', config.toMap());
       SDKLogger.info('BidsCube SDK initialized successfully');
     } on PlatformException catch (e) {
@@ -64,6 +69,14 @@ class MethodChannelBidscube extends BidscubePlatform {
     double? borderRadius,
   ]) async {
     try {
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: placementId,
+        phase: 'native_getVideoAdView_invoke',
+      );
+      SDKDiagnostics.logVideoPlayerRoute(
+        placementId: placementId,
+        route: 'native_platform_view',
+      );
       final result = await _channel.invokeMethod('getVideoAdView', {
         'placementId': placementId,
         'position': position.value,
@@ -73,8 +86,19 @@ class MethodChannelBidscube extends BidscubePlatform {
         _setCallback(placementId, callback);
       }
 
-      return _createAdWidget(result, placementId, callback);
+      final w = _createAdWidget(result, placementId, callback);
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: placementId,
+        phase: 'native_platformView_ready',
+        detail: w.runtimeType.toString(),
+      );
+      return w;
     } on PlatformException catch (e) {
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: placementId,
+        phase: 'native_getVideoAdView_failed',
+        detail: e.message,
+      );
       SDKLogger.error('Failed to get video ad view', e);
       rethrow;
     }

@@ -124,8 +124,20 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 } catch (_: Throwable) {
                 }
             }
+            Log.i(
+                TAG,
+                "[BidsCubeDiag] bidscube_native init_ok BidscubeSDK.initialize finished",
+            )
+            if (integrationMode == "appLovinMax" || integrationMode == "levelPlay") {
+                Log.i(
+                    TAG,
+                    "[BidsCubeDiag] applovin_max Host must initialize AppLovin MAX in the Android app; " +
+                        "Bidscube–MAX link is in the mediation adapter (see native / Logcat).",
+                )
+            }
             result.success("ok")
         } catch (e: Exception) {
+            Log.e(TAG, "[BidsCubeDiag] bidscube_native init_failed ${e.message}", e)
             result.error("INITIALIZATION_ERROR", e.message, null)
         }
     }
@@ -201,6 +213,10 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             result.error("INVALID_PLACEMENT_ID", "placementId is required", null)
             return
         }
+        Log.i(
+            TAG,
+            "[BidsCubeDiag] ad_load_native placement=$placementId kind=$kind",
+        )
         val messenger = flutterBinding?.binaryMessenger ?: run {
             result.error("NO_ENGINE", "Flutter engine not available", null)
             return

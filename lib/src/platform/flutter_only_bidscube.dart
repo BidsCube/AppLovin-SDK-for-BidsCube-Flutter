@@ -8,17 +8,20 @@ import '../core/callbacks.dart';
 import '../core/ad_type.dart';
 import '../core/ad_position.dart';
 import '../core/logger.dart';
+import '../core/sdk_diagnostics.dart';
+import '../core/bidscube_video_player.dart';
+import '../core/constants.dart';
 import '../core/ad_request_client.dart';
 import '../views/webview_image_ad_view.dart';
 import '../views/ima_vast_video_ad_view.dart';
 import '../views/flutter_native_ad_view.dart';
-import '../core/constants.dart';
 
 /// Flutter-only implementation of BidsCube SDK
 /// Uses WebView, video_player, and custom widgets instead of native code
 class FlutterOnlyBidscube extends BidscubePlatform {
   late AdRequestClient _adClient;
   final Map<String, AdCallback> _callbacks = {};
+  SDKConfig? _sdkConfig;
 
   @override
   Future<void> initialize({required SDKConfig config}) async {
@@ -28,10 +31,14 @@ class FlutterOnlyBidscube extends BidscubePlatform {
       );
     }
     try {
+      _sdkConfig = config;
       _adClient = AdRequestClient(
         baseUrl: config.baseURL,
         timeout: Duration(milliseconds: config.defaultAdTimeout),
-        defaultHeaders: {'X-SDK-Version': '1.0.3', 'X-Platform': 'Flutter'},
+        defaultHeaders: {
+          'X-SDK-Version': Constants.sdkVersion,
+          'X-Platform': 'Flutter',
+        },
       );
 
       SDKLogger.info('BidsCube Flutter-only SDK initialized successfully');
@@ -94,6 +101,10 @@ class FlutterOnlyBidscube extends BidscubePlatform {
     double? borderRadius,
   ]) async {
     try {
+      SDKDiagnostics.logAdRequestPhase(
+        placementId: placementId,
+        phase: 'getVideoAdView_start',
+      );
       if (callback != null) {
         _callbacks[placementId] = callback;
         SDKLogger.info(
@@ -101,6 +112,10 @@ class FlutterOnlyBidscube extends BidscubePlatform {
         );
 
         if (callback.onAdRenderOverride != null) {
+          SDKDiagnostics.logVideoPlayerRoute(
+            placementId: placementId,
+            route: 'onAdRenderOverride_host',
+          );
           requestAd(
             placementId: placementId,
             adType: AdType.video,
@@ -114,6 +129,29 @@ class FlutterOnlyBidscube extends BidscubePlatform {
         }
       }
 
+      final customBuilder = _sdkConfig?.customVideoPlayerBuilder;
+      if (customBuilder != null) {
+        SDKDiagnostics.logVideoPlayerRoute(
+          placementId: placementId,
+          route: 'custom_client_builder',
+        );
+        return customBuilder(
+          BidscubeVideoPlayerBuildContext(
+            placementId: placementId,
+            baseUrl: _adClient.baseUrl,
+            position: position,
+            callback: callback,
+            width: Constants.defaultAdWidth,
+            height: Constants.defaultAdHeight,
+            borderRadius: borderRadius,
+          ),
+        );
+      }
+
+      SDKDiagnostics.logVideoPlayerRoute(
+        placementId: placementId,
+        route: 'ima_default_widget',
+      );
       return ImaVastVideoAdView(
         placementId: placementId,
         callback: callback,
