@@ -42,7 +42,7 @@ Run the example app (`example/`), tap **QA — VAST preview tests**, or call **`
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.4+1
+  bidscube_sdk_flutter: ^1.2.2
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 
@@ -182,6 +182,6 @@ Ad request uses `https://<authority>/sdk` with query params aligned to the nativ
 
 ## Version
 
-**Bidscube Flutter SDK 1.0.4** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
+**Bidscube Flutter SDK 1.2.2** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
 
 Maintainers: [`RELEASE.md`](RELEASE.md) · `flutter test` · `flutter analyze`

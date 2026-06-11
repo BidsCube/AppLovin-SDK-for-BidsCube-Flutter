@@ -79,7 +79,12 @@ BEGIN{done=0}
 END{ if(!done){ print "version: " full } }
 '
 
-# 2) android/app/build.gradle.kts: replace versionCode and versionName if present; otherwise insert under defaultConfig
+# 2a) android/build.gradle (plugin): replace version = "..."
+_replace_with_awk "android/build.gradle" '
+{ if($0 ~ /^[[:space:]]*version[[:space:]]*=/){ sub(/=.*/, "= \"" full "\""); print } else print }
+'
+
+# 2b) android/app/build.gradle.kts: replace versionCode and versionName if present; otherwise insert under defaultConfig
 _replace_with_awk "android/app/build.gradle.kts" '
 BEGIN{vc_seen=0;vn_seen=0; in_default=0}
 /^[[:space:]]*defaultConfig[[:space:]]*\{/ { print; in_default=1; next }
@@ -130,6 +135,7 @@ fi
 cat <<EOF
 Summary:
  - pubspec.yaml -> version: $VERSION_FULL
+ - android/build.gradle -> version: $VERSION_FULL
  - android/app/build.gradle.kts -> versionName: $VERSION_BASE, versionCode: $VERSION_CODE
  - ios/bidscube_sdk_flutter.podspec -> s.version: $VERSION_FULL
  - lib/src/core/constants.dart -> sdkVersion/webViewUserAgent: $VERSION_BASE

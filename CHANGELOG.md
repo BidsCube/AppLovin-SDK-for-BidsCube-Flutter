@@ -1,8 +1,8 @@
-## 1.0.4+1
+## 1.2.2
 
-* **Version:** `1.0.4+1` — `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
+* **Version:** `1.2.2` — `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
 * **VAST companion preview:** `VastParser` reads Companion `StaticResource` and `CompanionClickThrough`; skip offset from `Linear@skipoffset`.
-* **End card UI:** [`VastEndCardView`](lib/src/views/vast_end_card_view.dart) — app-store style layout (aligned with native `VideoInterstitialUiHelper`) when companion preview is present; existing fallback end card when preview is absent (no default image injection).
+* **End card UI:** [`VastEndCardView`](lib/src/views/vast_end_card_view.dart) — fullscreen app-store style layout when companion preview is present; end card shown only when preview exists.
 * **VAST from markup:** `BidscubeSDK.showVideoAdFromVast` / [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart); Android plugin uses reflection for `showVideoAdFromVastMarkup` when older AAR is on the classpath.
 * **QA:** [`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart) + example **QA — VAST preview tests** screen.
 
