@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'core/sdk_config.dart';
 import 'core/callbacks.dart';
 import 'core/ad_type.dart';
@@ -9,6 +9,7 @@ import 'core/logger.dart';
 import 'platform/bidscube_platform.dart';
 import 'platform/method_channel_bidscube.dart';
 import 'platform/flutter_only_bidscube.dart';
+import 'views/vast_video_ad_view.dart';
 
 /// Main BidsCube SDK class for Flutter
 class BidscubeSDK {
@@ -93,6 +94,37 @@ class BidscubeSDK {
       callback,
       position,
       borderRadius,
+    );
+  }
+
+  /// Show a fullscreen video ad from inline VAST XML (QA / local testing).
+  ///
+  /// Does not call the ad server; parses and plays the supplied [vastXml].
+  static Future<void> showVideoAdFromVast(
+    BuildContext context,
+    String placementId,
+    String vastXml, {
+    AdCallback? callback,
+  }) async {
+    _checkInitialized();
+    _assertDirectIntegrationForWidgets('showVideoAdFromVast');
+    if (_useFlutterOnly) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => VastVideoAdView(
+            placementId: placementId,
+            vastXml: vastXml,
+            callback: callback,
+          ),
+        ),
+      );
+      return;
+    }
+    await _platform.showVideoAdFromVast(
+      placementId,
+      vastXml,
+      callback: callback,
     );
   }
 

@@ -283,6 +283,26 @@ class MethodChannelBidscube extends BidscubePlatform {
   }
 
   @override
+  Future<void> showVideoAdFromVast(
+    String placementId,
+    String vastXml, {
+    AdCallback? callback,
+  }) async {
+    try {
+      if (callback != null) {
+        _setCallback(placementId, callback);
+      }
+      await _channel.invokeMethod('showVideoAdFromVast', {
+        'placementId': placementId,
+        'vastXml': vastXml,
+      });
+    } on PlatformException catch (e) {
+      SDKLogger.error('Failed to show video ad from VAST', e);
+      rethrow;
+    }
+  }
+
+  @override
   Future<List<String>> getSKAdNetworkIds() async {
     try {
       final result = await _channel.invokeMethod('getSKAdNetworkIds');

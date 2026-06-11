@@ -328,6 +328,20 @@ class FlutterOnlyBidscube extends BidscubePlatform {
   }
 
   @override
+  Future<void> showVideoAdFromVast(
+    String placementId,
+    String vastXml, {
+    AdCallback? callback,
+  }) {
+    return Future.error(
+      UnsupportedError(
+        'showVideoAdFromVast via platform is not used in Flutter-only mode; '
+        'BidscubeSDK routes to VastVideoAdView directly.',
+      ),
+    );
+  }
+
+  @override
   Future<List<String>> getSKAdNetworkIds() async {
     // In Flutter-only mode, we can't access native Info.plist
     // Return an empty list or mock data for testing

@@ -52,6 +52,11 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             showConsentForm(result: result)
         case "getSKAdNetworkIds":
             getSKAdNetworkIds(result: result)
+        case "showVideoAdFromVast":
+            let args = call.arguments as? [String: Any]
+            let placementId = args?["placementId"] as? String
+            let vastXml = args?["vastXml"] as? String
+            showVideoAdFromVast(placementId: placementId, vastXml: vastXml, result: result)
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -201,6 +206,26 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "SKADNETWORK_ERROR", message: "Failed to get SKAdNetwork IDs: \(error.localizedDescription)", details: nil))
         }
     }
+
+    private func showVideoAdFromVast(placementId: String?, vastXml: String?, result: @escaping FlutterResult) {
+        guard let placementId = placementId, !placementId.isEmpty else {
+            result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "placementId is required", details: nil))
+            return
+        }
+        guard let vastXml = vastXml, !vastXml.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            result(FlutterError(code: "INVALID_VAST", message: "vastXml is required", details: nil))
+            return
+        }
+        let presenter = registrar?.viewController()
+        let delegate = FlutterVastShowDelegate(channel: methodChannel, result: result)
+        print("[BidsCubeDiag] showVideoAdFromVast placement=\(placementId) vastChars=\(vastXml.count)")
+        BidscubeSDK.showVideoAdFromVast(
+            from: presenter,
+            placementId: placementId,
+            vastXml: vastXml,
+            callback: delegate
+        )
+    }
 }
 
 // MARK: - Flutter View Factory
@@ -288,5 +313,91 @@ class FlutterAdDelegate: NSObject, AdCallback {
 
     func onVideoAdSkipped(_ placementId: String) {
         push("onVideoAdSkipped", ["placementId": placementId])
+    }
+}
+
+/// Forwards ad events to Dart and completes the Flutter result when the VAST flow ends.
+private class FlutterVastShowDelegate: NSObject, AdCallback {
+    private weak var channel: FlutterMethodChannel?
+    private var result: FlutterResult?
+    private var finished = false
+
+    init(channel: FlutterMethodChannel?, result: @escaping FlutterResult) {
+        self.channel = channel
+        self.result = result
+    }
+
+    private func push(_ method: String, _ arguments: [String: Any]) {
+        DispatchQueue.main.async { [weak self] in
+            self?.channel?.invokeMethod(method, arguments: arguments)
+        }
+    }
+
+    private func finishSuccess() {
+        guard !finished else { return }
+        finished = true
+        DispatchQueue.main.async { [weak self] in
+            self?.result?(nil)
+            self?.result = nil
+        }
+    }
+
+    private func finishError(code: Int, message: String) {
+        guard !finished else { return }
+        finished = true
+        DispatchQueue.main.async { [weak self] in
+            self?.result?(FlutterError(
+                code: "AD_FAILED",
+                message: message,
+                details: ["errorCode": code]
+            ))
+            self?.result = nil
+        }
+    }
+
+    func onAdLoading(_ placementId: String) {
+        push("onAdLoading", ["placementId": placementId])
+    }
+
+    func onAdLoaded(_ placementId: String) {
+        push("onAdLoaded", ["placementId": placementId])
+    }
+
+    func onAdDisplayed(_ placementId: String) {
+        push("onAdDisplayed", ["placementId": placementId])
+    }
+
+    func onAdFailed(_ placementId: String, errorCode: Int, errorMessage: String) {
+        push("onAdFailed", [
+            "placementId": placementId,
+            "errorCode": String(errorCode),
+            "errorMessage": errorMessage,
+        ])
+        finishError(code: errorCode, message: errorMessage)
+    }
+
+    func onAdClicked(_ placementId: String) {
+        push("onAdClicked", ["placementId": placementId])
+    }
+
+    func onAdClosed(_ placementId: String) {
+        push("onAdClosed", ["placementId": placementId])
+        finishSuccess()
+    }
+
+    func onVideoAdStarted(_ placementId: String) {
+        push("onVideoAdStarted", ["placementId": placementId])
+    }
+
+    func onVideoAdCompleted(_ placementId: String) {
+        push("onVideoAdCompleted", ["placementId": placementId])
+    }
+
+    func onVideoAdSkipped(_ placementId: String) {
+        push("onVideoAdSkipped", ["placementId": placementId])
+    }
+
+    func onVideoAdSkippable(_ placementId: String) {
+        push("onVideoAdSkippable", ["placementId": placementId])
     }
 }

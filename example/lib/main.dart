@@ -2,6 +2,8 @@ import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'qa_vast_screen.dart';
+
 /// Optional override for local mock SSP / tunnel (see README "Ad request endpoint").
 /// Run: `flutter run --dart-define=BIDSCUBE_SSP_AUTHORITY=127.0.0.1:8787`
 const String _kSspAuthorityOverride = String.fromEnvironment(
@@ -17,12 +19,12 @@ Future<void> main() async {
   await BidscubeSDK.initialize(
     config: SDKConfig.builder()
         .enableLogging(true)
+        .enableDebugMode(true)
         .adRequestAuthority(
           _kSspAuthorityOverride.isEmpty ? null : _kSspAuthorityOverride,
         )
         // AppLovin MAX: .integrationMode(BidscubeIntegrationMode.appLovinMaxMediation)
         .build(),
-    // Native Bidscube on Android/iOS; Web/Desktop use Flutter-only (HTTP/WebView).
     useFlutterOnly: !nativeMobile,
   );
   runApp(const MyApp());
@@ -47,13 +49,30 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('BidsCube Banner Ad Example')),
+      appBar: AppBar(title: const Text('BidsCube SDK Example')),
       body: Center(
-        child: BannerAdView(
-          placementId: '20212',
-          width: 320,
-          height: 50,
-          callback: ExampleAdCallback(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            BannerAdView(
+              placementId: '20212',
+              width: 320,
+              height: 50,
+              callback: ExampleAdCallback(),
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const QaVastScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('QA — VAST preview tests'),
+            ),
+          ],
         ),
       ),
     );

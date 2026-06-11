@@ -1,8 +1,17 @@
+## 1.0.4+1
+
+* **Version:** `1.0.4+1` — `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
+* **VAST companion preview:** `VastParser` reads Companion `StaticResource` and `CompanionClickThrough`; skip offset from `Linear@skipoffset`.
+* **End card UI:** [`VastEndCardView`](lib/src/views/vast_end_card_view.dart) — app-store style layout (aligned with native `VideoInterstitialUiHelper`) when companion preview is present; existing fallback end card when preview is absent (no default image injection).
+* **VAST from markup:** `BidscubeSDK.showVideoAdFromVast` / [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart); Android plugin uses reflection for `showVideoAdFromVastMarkup` when older AAR is on the classpath.
+* **QA:** [`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart) + example **QA — VAST preview tests** screen.
+
 ## 1.0.3+1
 
 * **Version:** `1.0.3+1` (pub semver; same line as “1.0.3 patch 1”). `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
 * **Custom video player (Flutter-only):** `SDKConfig.customVideoPlayerBuilder` / `SDKConfigBuilder.customVideoPlayerBuilder(...)` — host returns a widget instead of the default IMA player when not using `onAdRenderOverride`.
 * **Diagnostics:** `[BidsCubeDiag]` logs via `SDKDiagnostics` — init (native vs Flutter-only), AppLovin MAX hint in mediation mode, ad load phases, IMA lifecycle, native `getVideoAdView` / placement logs (Android Logcat / Xcode). `BidscubeSDK.initialize` applies `enableLogging` / `enableDebugMode` to `SDKLogger` before init.
+* **VAST preview / end card:** `VastParser` reads Companion `StaticResource` when present; [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart) keeps existing fallback end card when preview is absent. QA fixtures in [`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart); example app **QA — VAST preview tests** screen.
 
 ## 1.0.3
 

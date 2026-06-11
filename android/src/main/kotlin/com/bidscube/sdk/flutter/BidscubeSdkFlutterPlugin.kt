@@ -96,6 +96,7 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 val placementId = call.argument<String>("placementId")
                 loadNativeAdView(placementId, NativeAdKind.BANNER, result)
             }
+            "showVideoAdFromVast" -> showVideoAdFromVast(call, result)
             "requestAd", "removeAdCallback" -> result.success(null)
             "requestConsentInfoUpdate" -> result.success("ok")
             "showConsentForm" -> result.success("ok")
@@ -246,6 +247,63 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         return AdPosition.fromString(normalized).name
     }
 
+    private fun showVideoAdFromVast(call: MethodCall, result: MethodChannel.Result) {
+        val placementId = call.argument<String>("placementId")
+        val vastXml = call.argument<String>("vastXml")
+        if (placementId.isNullOrBlank()) {
+            result.error("INVALID_PLACEMENT_ID", "placementId is required", null)
+            return
+        }
+        if (vastXml.isNullOrBlank()) {
+            result.error("INVALID_VAST", "vastXml is required", null)
+            return
+        }
+        val act = activity
+        if (act == null) {
+            result.error("NO_ACTIVITY", "Activity is required to show video ads", null)
+            return
+        }
+        if (!BidscubeSDK.isInitialized()) {
+            result.error("NOT_INITIALIZED", "BidscubeSDK is not initialized", null)
+            return
+        }
+        val messenger = flutterBinding?.binaryMessenger ?: run {
+            result.error("NO_ENGINE", "Flutter engine not available", null)
+            return
+        }
+        try {
+            BidscubeSDK.setActivity(act)
+            val cb = VastShowAdCallback(MethodChannel(messenger, CHANNEL_NAME), result)
+            Log.i(TAG, "[BidsCubeDiag] showVideoAdFromVast placement=$placementId vastChars=${vastXml.length}")
+            invokeShowVideoAdFromVastMarkup(placementId, vastXml, cb)
+        } catch (e: NoSuchMethodException) {
+            Log.w(TAG, "showVideoAdFromVastMarkup not in bidscube-sdk AAR; use VastVideoAdView or upgrade AAR")
+            result.error(
+                "NOT_SUPPORTED",
+                "Native showVideoAdFromVastMarkup requires a newer bidscube-sdk AAR in android/libs/",
+                null,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "showVideoAdFromVast failed: ${e.message}", e)
+            result.error("VAST_SHOW_ERROR", e.message, null)
+        }
+    }
+
+    /** Maven 1.0.0 AAR may omit VAST markup API; reflection keeps the plugin buildable. */
+    private fun invokeShowVideoAdFromVastMarkup(
+        placementId: String,
+        vastXml: String,
+        callback: AdCallback,
+    ) {
+        val method = BidscubeSDK::class.java.getMethod(
+            "showVideoAdFromVastMarkup",
+            String::class.java,
+            String::class.java,
+            AdCallback::class.java,
+        )
+        method.invoke(null, placementId, vastXml, callback)
+    }
+
     private enum class NativeAdKind { IMAGE, VIDEO, NATIVE, BANNER }
 
     companion object {
@@ -310,6 +368,88 @@ private class DartAdCallback(private val channel: MethodChannel) : AdCallback {
 
     override fun onVideoAdSkipped(placementId: String) {
         push("onVideoAdSkipped", mapOf("placementId" to placementId))
+    }
+}
+
+/**
+ * Forwards ad events to Dart and completes the Flutter [MethodChannel.Result]
+ * when the fullscreen VAST flow ends ([onAdClosed] or [onAdFailed]).
+ */
+private class VastShowAdCallback(
+    private val channel: MethodChannel,
+    private val result: MethodChannel.Result,
+) : AdCallback {
+    private val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun runMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            Handler(Looper.getMainLooper()).post { block() }
+        }
+    }
+
+    private fun push(method: String, args: Map<String, Any?>) {
+        runMain { channel.invokeMethod(method, args) }
+    }
+
+    private fun finishSuccess() {
+        if (!finished.compareAndSet(false, true)) return
+        runMain { result.success(null) }
+    }
+
+    private fun finishError(code: Int, message: String) {
+        if (!finished.compareAndSet(false, true)) return
+        runMain { result.error("AD_FAILED", message, mapOf("errorCode" to code)) }
+    }
+
+    override fun onAdLoading(placementId: String) {
+        push("onAdLoading", mapOf("placementId" to placementId))
+    }
+
+    override fun onAdLoaded(placementId: String) {
+        push("onAdLoaded", mapOf("placementId" to placementId))
+    }
+
+    override fun onAdDisplayed(placementId: String) {
+        push("onAdDisplayed", mapOf("placementId" to placementId))
+    }
+
+    override fun onAdClicked(placementId: String) {
+        push("onAdClicked", mapOf("placementId" to placementId))
+    }
+
+    override fun onAdClosed(placementId: String) {
+        push("onAdClosed", mapOf("placementId" to placementId))
+        finishSuccess()
+    }
+
+    override fun onAdFailed(placementId: String, errorCode: Int, errorMessage: String) {
+        push(
+            "onAdFailed",
+            mapOf(
+                "placementId" to placementId,
+                "errorCode" to errorCode.toString(),
+                "errorMessage" to errorMessage,
+            ),
+        )
+        finishError(errorCode, errorMessage)
+    }
+
+    override fun onVideoAdStarted(placementId: String) {
+        push("onVideoAdStarted", mapOf("placementId" to placementId))
+    }
+
+    override fun onVideoAdCompleted(placementId: String) {
+        push("onVideoAdCompleted", mapOf("placementId" to placementId))
+    }
+
+    override fun onVideoAdSkipped(placementId: String) {
+        push("onVideoAdSkipped", mapOf("placementId" to placementId))
+    }
+
+    override fun onVideoAdSkippable(placementId: String) {
+        push("onVideoAdSkippable", mapOf("placementId" to placementId))
     }
 }
 

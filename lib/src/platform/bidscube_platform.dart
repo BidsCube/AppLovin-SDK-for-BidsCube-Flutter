@@ -76,4 +76,15 @@ abstract class BidscubePlatform {
 
   /// Get SKAdNetwork IDs from Info.plist
   Future<List<String>> getSKAdNetworkIds();
+
+  /// Show fullscreen video from inline VAST XML (QA / local testing).
+  ///
+  /// Native implementation uses [BidscubeSDK.showVideoAdFromVastMarkup] on Android
+  /// and [BidscubeSDK.showVideoAdFromVast] on iOS. Completes when the ad closes
+  /// or fails.
+  Future<void> showVideoAdFromVast(
+    String placementId,
+    String vastXml, {
+    AdCallback? callback,
+  });
 }

@@ -12,12 +12,12 @@ class VastParser {
         throw Exception('Invalid VAST XML: Root element must be VAST');
       }
 
-      final adElement = vastElement.findElements('Ad').firstOrNull;
+      final adElement = vastElement.findAllElements('Ad').firstOrNull;
       if (adElement == null) {
         throw Exception('No Ad element found in VAST XML');
       }
 
-      final inlineElement = adElement.findElements('InLine').firstOrNull;
+      final inlineElement = adElement.findAllElements('InLine').firstOrNull;
       if (inlineElement == null) {
         throw Exception('No InLine element found in VAST XML');
       }
@@ -29,37 +29,77 @@ class VastParser {
   }
 
   static VastAd _parseInlineAd(XmlElement inlineElement) {
-    // Parse ad system
     final adSystem =
-        inlineElement.findElements('AdSystem').firstOrNull?.innerText ??
+        inlineElement.findAllElements('AdSystem').firstOrNull?.innerText ??
             'Unknown';
-
-    // Parse ad title
     final adTitle =
-        inlineElement.findElements('AdTitle').firstOrNull?.innerText ?? '';
-
-    // Parse description
+        inlineElement.findAllElements('AdTitle').firstOrNull?.innerText ?? '';
     final description =
-        inlineElement.findElements('Description').firstOrNull?.innerText ?? '';
+        inlineElement.findAllElements('Description').firstOrNull?.innerText ??
+            '';
 
-    // Parse creatives
     final creatives = <VastCreative>[];
-    final creativeElements = inlineElement.findElements('Creative');
-
-    for (final creativeElement in creativeElements) {
+    for (final creativeElement in inlineElement.findAllElements('Creative')) {
       final creative = _parseCreative(creativeElement);
       if (creative != null) {
         creatives.add(creative);
       }
     }
 
-    // Parse tracking events
     final trackingEvents = <String, List<String>>{};
+    final impressionUrls = <String>[];
+    for (final impressionElement in inlineElement.findAllElements('Impression')) {
+      final url = impressionElement.innerText.trim();
+      if (url.isNotEmpty) {
+        impressionUrls.add(url);
+      }
+    }
+    if (impressionUrls.isNotEmpty) {
+      trackingEvents['impression'] = impressionUrls;
+    }
+
     for (final creative in creatives) {
       if (creative is VastLinearCreative) {
         for (final tracking in creative.trackingEvents) {
           trackingEvents[tracking.event] = trackingEvents[tracking.event] ?? [];
           trackingEvents[tracking.event]!.add(tracking.url);
+        }
+      }
+    }
+
+    String? companionPreviewUrl;
+    String? companionClickThroughUrl;
+    int skipOffsetSeconds = -1;
+    String? videoUrl;
+    String? clickThroughUrl;
+    final clickTrackingUrls = <String>[];
+
+    for (final creativeElement in inlineElement.findAllElements('Creative')) {
+      final companion = _parseCompanion(creativeElement);
+      companionPreviewUrl ??= companion.previewUrl;
+      companionClickThroughUrl ??= companion.clickThroughUrl;
+
+      final linear = creativeElement.findAllElements('Linear').firstOrNull;
+      if (linear != null) {
+        skipOffsetSeconds = _maxSkipOffset(
+          skipOffsetSeconds,
+          _parseSkipOffset(linear.getAttribute('skipoffset')),
+        );
+      }
+    }
+
+    for (final creative in creatives) {
+      if (creative is VastLinearCreative) {
+        if (skipOffsetSeconds < 0 && creative.skipOffsetSeconds >= 0) {
+          skipOffsetSeconds = creative.skipOffsetSeconds;
+        }
+        videoUrl ??= creative.bestVideoUrl;
+        for (final click in creative.videoClicks) {
+          if (click.type == 'ClickThrough' && clickThroughUrl == null) {
+            clickThroughUrl = click.url.trim();
+          } else if (click.type == 'ClickTracking') {
+            clickTrackingUrls.add(click.url.trim());
+          }
         }
       }
     }
@@ -70,17 +110,23 @@ class VastParser {
       description: description,
       creatives: creatives,
       trackingEvents: trackingEvents,
+      companionPreviewUrl: companionPreviewUrl,
+      companionClickThroughUrl: companionClickThroughUrl,
+      skipOffsetSeconds: skipOffsetSeconds,
+      videoUrl: videoUrl,
+      clickThroughUrl: clickThroughUrl,
+      clickTrackingUrls: clickTrackingUrls,
     );
   }
 
   static VastCreative? _parseCreative(XmlElement creativeElement) {
-    final linearElement = creativeElement.findElements('Linear').firstOrNull;
+    final linearElement = creativeElement.findAllElements('Linear').firstOrNull;
     if (linearElement != null) {
       return _parseLinearCreative(linearElement);
     }
 
     final nonLinearElement =
-        creativeElement.findElements('NonLinear').firstOrNull;
+        creativeElement.findAllElements('NonLinear').firstOrNull;
     if (nonLinearElement != null) {
       return _parseNonLinearCreative(nonLinearElement);
     }
@@ -89,66 +135,60 @@ class VastParser {
   }
 
   static VastLinearCreative _parseLinearCreative(XmlElement linearElement) {
-    // Parse duration
     final duration =
-        linearElement.findElements('Duration').firstOrNull?.innerText ??
+        linearElement.findAllElements('Duration').firstOrNull?.innerText ??
             '00:00:30';
 
-    // Parse media files
     final mediaFiles = <VastMediaFile>[];
-    final mediaFileElements = linearElement.findElements('MediaFile');
-
-    for (final mediaFileElement in mediaFileElements) {
-      final mediaFile = VastMediaFile(
-        url: mediaFileElement.innerText,
-        type: mediaFileElement.getAttribute('type') ?? '',
-        width: int.tryParse(mediaFileElement.getAttribute('width') ?? '0') ?? 0,
-        height:
-            int.tryParse(mediaFileElement.getAttribute('height') ?? '0') ?? 0,
-        delivery: mediaFileElement.getAttribute('delivery') ?? 'progressive',
+    for (final mediaFileElement in linearElement.findAllElements('MediaFile')) {
+      mediaFiles.add(
+        VastMediaFile(
+          url: mediaFileElement.innerText.trim(),
+          type: mediaFileElement.getAttribute('type') ?? '',
+          width: int.tryParse(mediaFileElement.getAttribute('width') ?? '0') ?? 0,
+          height:
+              int.tryParse(mediaFileElement.getAttribute('height') ?? '0') ?? 0,
+          delivery: mediaFileElement.getAttribute('delivery') ?? 'progressive',
+        ),
       );
-      mediaFiles.add(mediaFile);
     }
 
-    // Parse tracking events
     final trackingEvents = <VastTrackingEvent>[];
     final trackingElement =
-        linearElement.findElements('TrackingEvents').firstOrNull;
+        linearElement.findAllElements('TrackingEvents').firstOrNull;
     if (trackingElement != null) {
-      final trackingEventElements = trackingElement.findElements('Tracking');
-      for (final trackingEventElement in trackingEventElements) {
+      for (final trackingEventElement in trackingElement.findAllElements(
+        'Tracking',
+      )) {
         final event = trackingEventElement.getAttribute('event') ?? '';
-        final url = trackingEventElement.innerText;
+        final url = trackingEventElement.innerText.trim();
         if (event.isNotEmpty && url.isNotEmpty) {
           trackingEvents.add(VastTrackingEvent(event: event, url: url));
         }
       }
     }
 
-    // Parse video clicks
     final videoClicks = <VastVideoClick>[];
     final videoClicksElement =
-        linearElement.findElements('VideoClicks').firstOrNull;
+        linearElement.findAllElements('VideoClicks').firstOrNull;
     if (videoClicksElement != null) {
       final clickThroughElement =
-          videoClicksElement.findElements('ClickThrough').firstOrNull;
+          videoClicksElement.findAllElements('ClickThrough').firstOrNull;
       if (clickThroughElement != null) {
         videoClicks.add(
           VastVideoClick(
             type: 'ClickThrough',
-            url: clickThroughElement.innerText,
+            url: clickThroughElement.innerText.trim(),
           ),
         );
       }
 
-      final clickTrackingElements = videoClicksElement.findElements(
-        'ClickTracking',
-      );
-      for (final clickTrackingElement in clickTrackingElements) {
+      for (final clickTrackingElement
+          in videoClicksElement.findAllElements('ClickTracking')) {
         videoClicks.add(
           VastVideoClick(
             type: 'ClickTracking',
-            url: clickTrackingElement.innerText,
+            url: clickTrackingElement.innerText.trim(),
           ),
         );
       }
@@ -159,35 +199,35 @@ class VastParser {
       mediaFiles: mediaFiles,
       trackingEvents: trackingEvents,
       videoClicks: videoClicks,
+      skipOffsetSeconds: _parseSkipOffset(
+        linearElement.getAttribute('skipoffset'),
+      ),
     );
   }
 
   static VastNonLinearCreative _parseNonLinearCreative(
     XmlElement nonLinearElement,
   ) {
-    // Parse non-linear ad resources
     final staticResources = <VastStaticResource>[];
-    final staticResourceElements = nonLinearElement.findElements(
-      'StaticResource',
-    );
-
-    for (final staticResourceElement in staticResourceElements) {
-      final staticResource = VastStaticResource(
-        url: staticResourceElement.innerText,
-        creativeType: staticResourceElement.getAttribute('creativeType') ?? '',
+    for (final staticResourceElement
+        in nonLinearElement.findAllElements('StaticResource')) {
+      staticResources.add(
+        VastStaticResource(
+          url: staticResourceElement.innerText.trim(),
+          creativeType: staticResourceElement.getAttribute('creativeType') ?? '',
+        ),
       );
-      staticResources.add(staticResource);
     }
 
-    // Parse tracking events for non-linear ads
     final trackingEvents = <VastTrackingEvent>[];
     final trackingElement =
-        nonLinearElement.findElements('TrackingEvents').firstOrNull;
+        nonLinearElement.findAllElements('TrackingEvents').firstOrNull;
     if (trackingElement != null) {
-      final trackingEventElements = trackingElement.findElements('Tracking');
-      for (final trackingEventElement in trackingEventElements) {
+      for (final trackingEventElement in trackingElement.findAllElements(
+        'Tracking',
+      )) {
         final event = trackingEventElement.getAttribute('event') ?? '';
-        final url = trackingEventElement.innerText;
+        final url = trackingEventElement.innerText.trim();
         if (event.isNotEmpty && url.isNotEmpty) {
           trackingEvents.add(VastTrackingEvent(event: event, url: url));
         }
@@ -199,6 +239,87 @@ class VastParser {
       trackingEvents: trackingEvents,
     );
   }
+
+  static _CompanionData _parseCompanion(XmlElement creativeElement) {
+    String? previewUrl;
+    String? clickThroughUrl;
+
+    final companionRoots = <XmlElement>[
+      ...creativeElement.findAllElements('Companion'),
+      ...creativeElement.findAllElements('CompanionAds').expand(
+            (ads) => ads.findAllElements('Companion'),
+          ),
+    ];
+
+    for (final companion in companionRoots) {
+      if (previewUrl == null) {
+        final staticResource =
+            companion.findAllElements('StaticResource').firstOrNull;
+        if (staticResource != null) {
+          final url = staticResource.innerText.trim();
+          if (url.isNotEmpty) {
+            previewUrl = url;
+          }
+        }
+      }
+
+      if (clickThroughUrl == null) {
+        final clickThrough =
+            companion.findAllElements('CompanionClickThrough').firstOrNull;
+        if (clickThrough != null) {
+          final url = clickThrough.innerText.trim();
+          if (url.isNotEmpty) {
+            clickThroughUrl = url;
+          }
+        }
+      }
+    }
+
+    return _CompanionData(
+      previewUrl: previewUrl,
+      clickThroughUrl: clickThroughUrl,
+    );
+  }
+
+  static int _parseSkipOffset(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return -1;
+
+    var value = raw.trim().toLowerCase();
+    if (value.endsWith('s')) {
+      value = value.substring(0, value.length - 1);
+    }
+
+    final direct = int.tryParse(value);
+    if (direct != null) return direct;
+
+    final parts = value.split(':');
+    if (parts.length == 3) {
+      final hours = int.tryParse(parts[0]) ?? 0;
+      final minutes = int.tryParse(parts[1]) ?? 0;
+      final seconds = double.tryParse(parts[2]) ?? 0;
+      return (hours * 3600 + minutes * 60 + seconds).round();
+    }
+    if (parts.length == 2) {
+      final minutes = int.tryParse(parts[0]) ?? 0;
+      final seconds = double.tryParse(parts[1]) ?? 0;
+      return (minutes * 60 + seconds).round();
+    }
+
+    return -1;
+  }
+
+  static int _maxSkipOffset(int current, int next) {
+    if (next < 0) return current;
+    if (current < 0) return next;
+    return current < next ? current : next;
+  }
+}
+
+class _CompanionData {
+  final String? previewUrl;
+  final String? clickThroughUrl;
+
+  const _CompanionData({this.previewUrl, this.clickThroughUrl});
 }
 
 /// VAST Ad data structure
@@ -208,6 +329,12 @@ class VastAd {
   final String description;
   final List<VastCreative> creatives;
   final Map<String, List<String>> trackingEvents;
+  final String? companionPreviewUrl;
+  final String? companionClickThroughUrl;
+  final int skipOffsetSeconds;
+  final String? videoUrl;
+  final String? clickThroughUrl;
+  final List<String> clickTrackingUrls;
 
   VastAd({
     required this.adSystem,
@@ -215,7 +342,15 @@ class VastAd {
     required this.description,
     required this.creatives,
     required this.trackingEvents,
+    this.companionPreviewUrl,
+    this.companionClickThroughUrl,
+    this.skipOffsetSeconds = -1,
+    this.videoUrl,
+    this.clickThroughUrl,
+    this.clickTrackingUrls = const [],
   });
+
+  List<String> get impressionUrls => trackingEvents['impression'] ?? [];
 }
 
 /// Base class for VAST creatives
@@ -227,13 +362,30 @@ class VastLinearCreative extends VastCreative {
   final List<VastMediaFile> mediaFiles;
   final List<VastTrackingEvent> trackingEvents;
   final List<VastVideoClick> videoClicks;
+  final int skipOffsetSeconds;
 
   VastLinearCreative({
     required this.duration,
     required this.mediaFiles,
     required this.trackingEvents,
     required this.videoClicks,
+    this.skipOffsetSeconds = -1,
   });
+
+  String? get bestVideoUrl {
+    for (final file in mediaFiles) {
+      final url = file.url.trim();
+      if (url.isEmpty) continue;
+      if (file.type.contains('mp4') || url.endsWith('.mp4')) {
+        return url;
+      }
+    }
+    for (final file in mediaFiles) {
+      final url = file.url.trim();
+      if (url.isNotEmpty) return url;
+    }
+    return null;
+  }
 }
 
 /// Non-linear creative (banner/image ads)

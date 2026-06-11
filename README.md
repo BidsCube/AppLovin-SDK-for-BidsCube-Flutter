@@ -25,6 +25,15 @@ Search logs for **`[BidsCubeDiag]`** and the **`BidsCubeSDK`** logger name. `Bid
 
 With **`useFlutterOnly: true`**, pass **`SDKConfigBuilder.customVideoPlayerBuilder((ctx) => YourWidget(...))`** — `ctx` is a [`BidscubeVideoPlayerBuildContext`](lib/src/core/bidscube_video_player.dart) (`placementId`, `baseUrl`, `callback`, size, etc.). Your widget replaces the default **`ImaVastVideoAdView`**. Does not apply to the native **`getVideoAdView`** PlatformView path. If you only need to render after the HTTP response, **`onAdRenderOverride`** on [`AdCallback`](lib/src/core/callbacks.dart) remains supported.
 
+### QA — VAST preview / end card (no backend)
+
+[`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart) ships two hardcoded VAST XML strings:
+
+1. **No preview** — DoorDash MP4 only; end card uses the existing fallback UI (not skipped when companion is missing).
+2. **With preview** — skippable Big Buck Bunny + Companion `StaticResource`; end card shows the parsed image; tap opens `https://www.google.com`.
+
+Run the example app (`example/`), tap **QA — VAST preview tests**, or call **`BidscubeSDK.showVideoAdFromVast`** / push [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart) with fixture XML. Filter logs: **`[BidsCubeDiag] vast_parsed`**, **`end_card_show`**, **`[QA-VAST]`** callback order.
+
 ---
 
 ## AppLovin MAX — installing
@@ -33,7 +42,7 @@ With **`useFlutterOnly: true`**, pass **`SDKConfigBuilder.customVideoPlayerBuild
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.0.3+1
+  bidscube_sdk_flutter: ^1.0.4+1
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 
@@ -173,6 +182,6 @@ Ad request uses `https://<authority>/sdk` with query params aligned to the nativ
 
 ## Version
 
-**Bidscube Flutter SDK 1.0.3** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
+**Bidscube Flutter SDK 1.0.4** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
 
 Maintainers: [`RELEASE.md`](RELEASE.md) · `flutter test` · `flutter analyze`
