@@ -34,6 +34,12 @@ Publishing runs via the GitHub Actions workflow **[`.github/workflows/release.ym
 
 **Actions** → **Release (pub.dev + GitHub)** → **Run workflow**: runs tests and `pub publish --dry-run` with no publish and no GitHub Release (no tag push event).
 
+## If publish hangs or is canceled after ~6 hours
+
+GitHub Actions cancels jobs at the **6 hour** limit. If **Publish to pub.dev** hangs, it is usually because **automated publishing (OIDC)** is not enabled for this package on [pub.dev](https://pub.dev/packages/bidscube_sdk_flutter/admin) → **Automated publishing** → link this GitHub repository.
+
+The workflow now fails fast (**15 minute** step timeout, **14 minute** command timeout) instead of waiting until the job is canceled.
+
 ## If the version is already on pub.dev
 
 If `dart pub publish` returns an “already exists” error, the workflow treats that as success (the GitHub Release was already created in the step above).

@@ -95,14 +95,28 @@ jobs:
 
             See also [RELEASE.md](https://github.com/${{ github.repository }}/blob/main/RELEASE.md) in this repository.
 
+      - name: Verify pub.dev OIDC prerequisites
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "::error::OIDC is unavailable. Ensure workflow permissions include id-token: write."
+            exit 1
+          fi
+          echo "OIDC token endpoint is available for pub.dev automated publishing."
+
       - name: Publish to pub.dev
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        timeout-minutes: 15
         shell: bash
         run: |
           set +e
-          output=$(dart pub publish -f 2>&1)
+          output="$(timeout 840 dart pub publish -f 2>&1)"
           rc=$?
           echo "$output"
+          if [ "$rc" -eq 124 ]; then
+            echo "::error::pub publish timed out after 14 minutes. Check pub.dev automated publishing (OIDC) for this repository."
+            exit 1
+          fi
           if [ "$rc" -ne 0 ]; then
             if echo "$output" | grep -qi "already exists"; then
               echo "Version already on pub.dev — workflow finished."
