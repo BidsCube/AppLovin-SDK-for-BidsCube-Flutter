@@ -10,10 +10,7 @@ void main() {
       vast.companionPreviewUrl,
       'https://www.gstatic.com/webp/gallery/3.jpg',
     );
-    expect(
-      vast.companionClickThroughUrl,
-      'https://www.google.com',
-    );
+    expect(vast.companionClickThroughUrl, 'https://www.google.com');
     expect(vast.clickThroughUrl, 'https://www.google.com');
     expect(vast.videoUrl, contains('big_buck_bunny.mp4'));
   });

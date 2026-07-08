@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +8,21 @@ import '../core/sdk_config.dart';
 import '../core/callbacks.dart';
 import '../core/ad_type.dart';
 import '../core/ad_position.dart';
+import '../core/constants.dart';
 import '../core/logger.dart';
 import '../core/sdk_diagnostics.dart';
 
 /// Method channel implementation for BidsCube SDK
 class MethodChannelBidscube extends BidscubePlatform {
   static const MethodChannel _channel = MethodChannel('bidscube_sdk');
+
+  final Map<String, AdCallback> _callbacks = {};
+  bool _handlerInstalled = false;
+
+  bool _cachedConsentRequired = false;
+  bool _cachedAdsConsent = false;
+  bool _cachedAnalyticsConsent = false;
+  String _cachedConsentSummary = 'required=false, ads=false, analytics=false';
 
   @override
   Future<void> initialize({required SDKConfig config}) async {
@@ -21,6 +32,7 @@ class MethodChannelBidscube extends BidscubePlatform {
         phase: 'methodChannel_initialize_invoke',
       );
       await _channel.invokeMethod('initialize', config.toMap());
+      await _refreshConsentCache();
       SDKLogger.info('BidsCube SDK initialized successfully');
     } on PlatformException catch (e) {
       SDKLogger.error('Failed to initialize BidsCube SDK', e);
@@ -32,67 +44,57 @@ class MethodChannelBidscube extends BidscubePlatform {
   Future<Widget> getBannerAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
-    try {
-      SDKLogger.info(
-        'Requesting native banner ad view for placement: $placementId',
-      );
-
-      final result = await _channel.invokeMethod('getBannerAdView', {
-        'placementId': placementId,
-        'position': position.value,
-      });
-
-      SDKLogger.info('Received result from native: $result');
-
-      if (callback != null) {
-        _setCallback(placementId, callback);
-      }
-
-      final widget = _createAdWidget(result, placementId, callback);
-      SDKLogger.info('Created ad widget: ${widget.runtimeType}');
-
-      return widget;
-    } on PlatformException catch (e) {
-      SDKLogger.error('Failed to get banner ad view', e);
-      rethrow;
-    }
+    double width = Constants.defaultAdWidth,
+    double height = Constants.defaultBannerHeight,
+  }) async {
+    return _getAdView(
+      method: 'getBannerAdView',
+      placementId: placementId,
+      callback: callback,
+      position: position,
+      width: width,
+      height: height,
+      fallbackWidth: Constants.defaultAdWidth,
+      fallbackHeight: Constants.defaultBannerHeight,
+    );
   }
 
   @override
   Future<Widget> getVideoAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
+    double width = Constants.defaultAdWidth,
+    double height = 180,
+  }) async {
+    SDKDiagnostics.logAdRequestPhase(
+      placementId: placementId,
+      phase: 'native_getVideoAdView_invoke',
+    );
+    SDKDiagnostics.logVideoPlayerRoute(
+      placementId: placementId,
+      route: 'native_platform_view',
+    );
     try {
-      SDKDiagnostics.logAdRequestPhase(
+      final widget = await _getAdView(
+        method: 'getVideoAdView',
         placementId: placementId,
-        phase: 'native_getVideoAdView_invoke',
+        callback: callback,
+        position: position,
+        width: width,
+        height: height,
+        fallbackWidth: Constants.defaultAdWidth,
+        fallbackHeight: 180,
       );
-      SDKDiagnostics.logVideoPlayerRoute(
-        placementId: placementId,
-        route: 'native_platform_view',
-      );
-      final result = await _channel.invokeMethod('getVideoAdView', {
-        'placementId': placementId,
-        'position': position.value,
-      });
-
-      if (callback != null) {
-        _setCallback(placementId, callback);
-      }
-
-      final w = _createAdWidget(result, placementId, callback);
       SDKDiagnostics.logAdRequestPhase(
         placementId: placementId,
         phase: 'native_platformView_ready',
-        detail: w.runtimeType.toString(),
+        detail: widget.runtimeType.toString(),
       );
-      return w;
+      return widget;
     } on PlatformException catch (e) {
       SDKDiagnostics.logAdRequestPhase(
         placementId: placementId,
@@ -108,22 +110,57 @@ class MethodChannelBidscube extends BidscubePlatform {
   Future<Widget> getNativeAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
+    double width = Constants.defaultAdWidth,
+    double height = 250,
+  }) async {
+    return _getAdView(
+      method: 'getNativeAdView',
+      placementId: placementId,
+      callback: callback,
+      position: position,
+      width: width,
+      height: height,
+      fallbackWidth: Constants.defaultAdWidth,
+      fallbackHeight: 250,
+    );
+  }
+
+  Future<Widget> _getAdView({
+    required String method,
+    required String placementId,
+    AdCallback? callback,
+    AdPosition position = AdPosition.unknown,
+    required double width,
+    required double height,
+    required double fallbackWidth,
+    required double fallbackHeight,
+  }) async {
     try {
-      final result = await _channel.invokeMethod('getNativeAdView', {
+      SDKLogger.info(
+        'Requesting native ad view ($method) for placement: $placementId',
+      );
+
+      final result = await _channel.invokeMethod(method, {
         'placementId': placementId,
         'position': position.value,
+        'width': width,
+        'height': height,
       });
 
       if (callback != null) {
         _setCallback(placementId, callback);
       }
 
-      return _createAdWidget(result, placementId, callback);
+      return _createAdWidget(
+        result,
+        placementId,
+        fallbackWidth: fallbackWidth,
+        fallbackHeight: fallbackHeight,
+      );
     } on PlatformException catch (e) {
-      SDKLogger.error('Failed to get native ad view', e);
+      SDKLogger.error('Failed to get ad view via $method', e);
       rethrow;
     }
   }
@@ -158,6 +195,7 @@ class MethodChannelBidscube extends BidscubePlatform {
 
   @override
   Future<void> removeAdCallback(String placementId) async {
+    _callbacks.remove(placementId);
     try {
       await _channel.invokeMethod('removeAdCallback', {
         'placementId': placementId,
@@ -169,51 +207,22 @@ class MethodChannelBidscube extends BidscubePlatform {
   }
 
   @override
-  bool isConsentRequired() {
-    try {
-      // For now, return a default value. In a real implementation,
-      // this would call the native platform
-      return false;
-    } catch (e) {
-      SDKLogger.error('Failed to check consent required', e);
-      return false;
-    }
-  }
+  bool isConsentRequired() => _cachedConsentRequired;
 
   @override
-  bool hasAdsConsent() {
-    try {
-      // For now, return a default value. In a real implementation,
-      // this would call the native platform
-      return true;
-    } catch (e) {
-      SDKLogger.error('Failed to check ads consent', e);
-      return false;
-    }
-  }
+  bool hasAdsConsent() => _cachedAdsConsent;
 
   @override
-  bool hasAnalyticsConsent() {
-    try {
-      // For now, return a default value. In a real implementation,
-      // this would call the native platform
-      return true;
-    } catch (e) {
-      SDKLogger.error('Failed to check analytics consent', e);
-      return false;
-    }
-  }
+  bool hasAnalyticsConsent() => _cachedAnalyticsConsent;
 
   @override
   Future<void> requestConsentInfoUpdate({AdCallback? callback}) async {
     try {
-      await _channel.invokeMethod('requestConsentInfoUpdate');
-
       if (callback != null) {
-        // Simulate consent info update
-        callback.onAdLoading('consent_info_update');
-        callback.onAdLoaded('consent_info_update');
+        _setCallback('_consent_', callback);
       }
+      await _channel.invokeMethod('requestConsentInfoUpdate');
+      await _refreshConsentCache();
     } on PlatformException catch (e) {
       SDKLogger.error('Failed to request consent info update', e);
       rethrow;
@@ -223,14 +232,11 @@ class MethodChannelBidscube extends BidscubePlatform {
   @override
   Future<void> showConsentForm({AdCallback? callback}) async {
     try {
-      await _channel.invokeMethod('showConsentForm');
-
       if (callback != null) {
-        // Simulate consent form shown and granted
-        callback.onAdLoading('consent_form');
-        callback.onAdLoaded('consent_form');
-        callback.onAdDisplayed('consent_form');
+        _setCallback('_consent_', callback);
       }
+      await _channel.invokeMethod('showConsentForm');
+      await _refreshConsentCache();
     } on PlatformException catch (e) {
       SDKLogger.error('Failed to show consent form', e);
       rethrow;
@@ -238,23 +244,14 @@ class MethodChannelBidscube extends BidscubePlatform {
   }
 
   @override
-  String getConsentStatusSummary() {
-    try {
-      // For now, return a default summary. In a real implementation,
-      // this would call the native platform
-      return "required=false, ads=true, analytics=true";
-    } catch (e) {
-      SDKLogger.error('Failed to get consent status summary', e);
-      return "required=false, ads=false, analytics=false";
-    }
-  }
+  String getConsentStatusSummary() => _cachedConsentSummary;
 
   @override
   void enableConsentDebugMode(String testDeviceId) {
     try {
-      // For now, just log. In a real implementation,
-      // this would call the native platform
-      SDKLogger.info('Consent debug mode enabled for device: $testDeviceId');
+      _channel.invokeMethod('enableConsentDebugMode', {
+        'testDeviceId': testDeviceId,
+      });
     } catch (e) {
       SDKLogger.error('Failed to enable consent debug mode', e);
     }
@@ -263,9 +260,8 @@ class MethodChannelBidscube extends BidscubePlatform {
   @override
   void resetConsent() {
     try {
-      // For now, just log. In a real implementation,
-      // this would call the native platform
-      SDKLogger.info('Consent information reset');
+      _channel.invokeMethod('resetConsent');
+      unawaited(_refreshConsentCache());
     } catch (e) {
       SDKLogger.error('Failed to reset consent', e);
     }
@@ -273,13 +269,10 @@ class MethodChannelBidscube extends BidscubePlatform {
 
   @override
   void cleanup() {
-    try {
-      // For now, just log. In a real implementation,
-      // this would call the native platform
-      SDKLogger.info('SDK cleanup completed');
-    } catch (e) {
-      SDKLogger.error('Failed to cleanup SDK', e);
-    }
+    _callbacks.clear();
+    _handlerInstalled = false;
+    _channel.setMethodCallHandler(null);
+    SDKLogger.info('SDK cleanup completed');
   }
 
   @override
@@ -316,71 +309,131 @@ class MethodChannelBidscube extends BidscubePlatform {
     }
   }
 
+  Future<void> _refreshConsentCache() async {
+    try {
+      _cachedConsentRequired =
+          await _channel.invokeMethod<bool>('isConsentRequired') ?? false;
+      _cachedAdsConsent =
+          await _channel.invokeMethod<bool>('hasAdsConsent') ?? false;
+      _cachedAnalyticsConsent =
+          await _channel.invokeMethod<bool>('hasAnalyticsConsent') ?? false;
+      _cachedConsentSummary =
+          await _channel.invokeMethod<String>('getConsentStatusSummary') ??
+              _cachedConsentSummary;
+    } on PlatformException catch (e) {
+      SDKLogger.error('Failed to refresh consent cache', e);
+    }
+  }
+
   void _setCallback(String placementId, AdCallback callback) {
-    _channel.setMethodCallHandler((call) async {
-      switch (call.method) {
-        case 'onAdLoading':
-          callback.onAdLoading(call.arguments['placementId']);
-          break;
-        case 'onAdLoaded':
-          callback.onAdLoaded(call.arguments['placementId']);
-          break;
-        case 'onAdDisplayed':
-          callback.onAdDisplayed(call.arguments['placementId']);
-          break;
-        case 'onAdFailed':
-          callback.onAdFailed(
-            call.arguments['placementId'],
-            call.arguments['errorCode'],
-            call.arguments['errorMessage'],
-          );
-          break;
-        case 'onAdClicked':
-          callback.onAdClicked(call.arguments['placementId']);
-          break;
-        case 'onAdClosed':
-          callback.onAdClosed(call.arguments['placementId']);
-          break;
-        case 'onVideoAdStarted':
-          callback.onVideoAdStarted(call.arguments['placementId']);
-          break;
-        case 'onVideoAdCompleted':
-          callback.onVideoAdCompleted(call.arguments['placementId']);
-          break;
-        case 'onVideoAdSkipped':
-          callback.onVideoAdSkipped(call.arguments['placementId']);
-          break;
-      }
-    });
+    _callbacks[placementId] = callback;
+    _ensureHandlerInstalled();
+  }
+
+  void _ensureHandlerInstalled() {
+    if (_handlerInstalled) return;
+    _handlerInstalled = true;
+    _channel.setMethodCallHandler(_handleNativeCallback);
+  }
+
+  Future<void> _handleNativeCallback(MethodCall call) async {
+    final args = call.arguments;
+    if (args is! Map) return;
+    final map = Map<String, dynamic>.from(args);
+    final placementId = map['placementId'] as String?;
+    if (placementId == null) return;
+    final callback = _callbacks[placementId];
+    if (callback == null) return;
+
+    switch (call.method) {
+      case 'onAdLoading':
+        callback.onAdLoading(placementId);
+        break;
+      case 'onAdLoaded':
+        callback.onAdLoaded(placementId);
+        break;
+      case 'onAdDisplayed':
+        callback.onAdDisplayed(placementId);
+        break;
+      case 'onAdFailed':
+        callback.onAdFailed(
+          placementId,
+          map['errorCode']?.toString() ?? 'unknown',
+          map['errorMessage']?.toString() ?? 'Unknown error',
+        );
+        break;
+      case 'onAdClicked':
+        callback.onAdClicked(placementId);
+        break;
+      case 'onAdClosed':
+        callback.onAdClosed(placementId);
+        break;
+      case 'onVideoAdStarted':
+        callback.onVideoAdStarted(placementId);
+        break;
+      case 'onVideoAdCompleted':
+        callback.onVideoAdCompleted(placementId);
+        break;
+      case 'onVideoAdSkipped':
+        callback.onVideoAdSkipped(placementId);
+        break;
+      case 'onConsentInfoUpdated':
+      case 'onConsentFormShown':
+      case 'onConsentGranted':
+      case 'onConsentDenied':
+      case 'onConsentNotRequired':
+        callback.onAdLoaded(placementId);
+        unawaited(_refreshConsentCache());
+        break;
+      case 'onConsentStatusChanged':
+        unawaited(_refreshConsentCache());
+        break;
+    }
   }
 
   static const String _androidPlatformViewType = 'bidscube_native_ad';
 
   Widget _createAdWidget(
     dynamic result,
-    String placementId,
-    AdCallback? callback,
-  ) {
+    String placementId, {
+    required double fallbackWidth,
+    required double fallbackHeight,
+  }) {
     if (result is! Map) {
-      return _placeholderAd(placementId, 'Invalid native response');
+      return _placeholderAd(
+        placementId,
+        'Invalid native response',
+        fallbackWidth,
+        fallbackHeight,
+      );
     }
     final viewKey = result['viewKey'] as String? ?? result['viewId'] as String?;
     if (viewKey == null || viewKey.isEmpty) {
-      return _placeholderAd(placementId, 'Missing native view handle');
+      return _placeholderAd(
+        placementId,
+        'Missing native view handle',
+        fallbackWidth,
+        fallbackHeight,
+      );
     }
+
+    final width = (result['width'] as num?)?.toDouble() ?? fallbackWidth;
+    final height = (result['height'] as num?)?.toDouble() ?? fallbackHeight;
 
     if (kIsWeb) {
       return _placeholderAd(
         placementId,
         'Native Bidscube views are not supported on web',
+        width,
+        height,
       );
     }
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return SizedBox(
-          width: 320,
-          height: 240,
+          width: width,
+          height: height,
           child: AndroidView(
             viewType: _androidPlatformViewType,
             creationParams: <String, dynamic>{
@@ -392,8 +445,8 @@ class MethodChannelBidscube extends BidscubePlatform {
         );
       case TargetPlatform.iOS:
         return SizedBox(
-          width: 320,
-          height: 240,
+          width: width,
+          height: height,
           child: UiKitView(
             viewType: viewKey,
             creationParams: <String, dynamic>{'placementId': placementId},
@@ -404,21 +457,30 @@ class MethodChannelBidscube extends BidscubePlatform {
         return _placeholderAd(
           placementId,
           'Native Bidscube views are only supported on Android and iOS',
+          width,
+          height,
         );
     }
   }
 
-  Widget _placeholderAd(String placementId, String message) {
+  Widget _placeholderAd(
+    String placementId,
+    String message,
+    double width,
+    double height,
+  ) {
     return SizedBox(
-      width: 320,
-      height: 240,
+      width: width,
+      height: height,
       child: Container(
         color: Colors.grey[300],
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child:
-                Text('$message\n($placementId)', textAlign: TextAlign.center),
+            child: Text(
+              '$message\n($placementId)',
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),

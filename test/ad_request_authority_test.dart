@@ -65,10 +65,7 @@ void main() {
     });
 
     test('default authority', () {
-      expect(
-        defaultSdkBaseUrlString(),
-        Constants.defaultSdkBaseUrl,
-      );
+      expect(defaultSdkBaseUrlString(), Constants.defaultSdkBaseUrl);
     });
   });
 

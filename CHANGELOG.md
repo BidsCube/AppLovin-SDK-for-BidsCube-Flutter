@@ -1,5 +1,20 @@
+## 1.2.3 - 2026-07-08
+
+* **Release:** AppLovin MAX Flutter integration — native adapter wiring on Android/iOS, mediation vs direct SDK modes, consent bridge, callback registry, PlatformView sizing.
+* **Android:** `applovin-bidscube-max-adapter-full-video:1.2.10` (Maven POM, no `@aar`); local AAR from `${projectDir}/libs/`.
+* **iOS:** `BidscubeSDKAppLovin ~> 1.1.0`; iOS 15.0+.
+* **Docs:** README, archive hygiene (`.pubignore`, `git archive` verification), `scripts/validate-package.sh`.
+* **Version:** `1.2.3` — `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
+
 ## 1.2.2
 
+* **AppLovin MAX wiring:** Android default dependency is `com.bidscube:applovin-bidscube-max-adapter-full-video:1.2.10` (local `applovin-bidscube-max-adapter-*.aar` override in `android/libs/`). iOS depends on `BidscubeSDKAppLovin ~> 1.1.0` (`ALBidscubeMediationAdapter`).
+* **Mediation vs direct:** `appLovinMaxMediation` initializes native runtime only; load/show via `applovin_max`. Direct widget APIs remain blocked in MAX mode.
+* **Consent bridge:** native `isConsentRequired`, `hasAdsConsent`, `hasAnalyticsConsent`, `getConsentStatusSummary`, `enableConsentDebugMode`, `resetConsent`, `requestConsentInfoUpdate`, `showConsentForm` wired on Android/iOS (no stub success values).
+* **Callbacks:** per-placement callback registry in `MethodChannelBidscube`.
+* **PlatformView sizing:** banner 320×50, video 320×180, native 320×250 defaults; width/height params on direct widget APIs.
+* **QA:** sibling `BidscubeFlutterAppLovinTestApp/` for MAX mediation; in-repo `example/` stays direct SDK / Flutter-only.
+* **Validation:** `scripts/validate-package.sh`; Android `verifyBidscubeMaxAdapter` Gradle task.
 * **Version:** `1.2.2` — `Constants.sdkVersion`, Android `build.gradle`, iOS podspec aligned.
 * **VAST companion preview:** `VastParser` reads Companion `StaticResource` and `CompanionClickThrough`; skip offset from `Linear@skipoffset`.
 * **End card UI:** [`VastEndCardView`](lib/src/views/vast_end_card_view.dart) — fullscreen app-store style layout when companion preview is present; end card shown only when preview exists.

@@ -13,25 +13,31 @@ abstract class BidscubePlatform {
   Future<Widget> getBannerAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]);
+    double width = 320,
+    double height = 50,
+  });
 
   /// Get Video Ad View
   Future<Widget> getVideoAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]);
+    double width = 320,
+    double height = 180,
+  });
 
   /// Get Native Ad View
   Future<Widget> getNativeAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]);
+    double width = 320,
+    double height = 250,
+  });
 
   /// Request Ad
   Future<void> requestAd({

@@ -1,27 +1,48 @@
-# Android — Bidscube SDK resolution
+# Android — Bidscube AppLovin MAX adapter resolution
 
-This plugin is **self-contained** when you ship the native SDK inside the repo.
+This plugin wires **AppLovin MAX mediation** by default. The host app must contain:
 
-## Option A — Local AAR (recommended for monorepo / air-gapped builds)
+`com.applovin.mediation.adapters.BidscubeMediationAdapter`
 
-1. Copy the release AAR from your Bidscube Android SDK build, e.g.  
-   `sdk/build/outputs/aar/sdk-release.aar`
-2. Rename and place it under **`android/libs/`** with **`bidscube`** in the filename, for example:
-   - `bidscube-sdk-release.aar`, or  
-   - `bidscube-sdk-1.0.0.aar`
+## Option A — Local adapter AAR (recommended for monorepo / air-gapped builds)
 
-The Gradle script picks the first `*.aar` in `libs/` whose name contains `bidscube` (case-insensitive). If none is found, it falls back to Maven:
+1. Build or copy a release adapter AAR from the Bidscube Android SDK repo, e.g.  
+   `applovin-adapter/build/staged-aars/applovin-bidscube-max-adapter-full-video-1.2.10.aar`
+2. Place it under **`android/libs/`** with a name containing `applovin-bidscube-max-adapter`, for example:
+   - `applovin-bidscube-max-adapter-full-video-1.2.10.aar`
 
-`com.bidscube:bidscube-sdk:1.0.0`
+Gradle picks the first matching `applovin-bidscube-max-adapter*.aar` in `libs/`.
+
+The adapter artifact pulls the matching Bidscube SDK runtime and AppLovin MAX SDK transitively.
 
 ## Option B — Maven
 
-Publish or consume `com.bidscube:bidscube-sdk` from Maven Central / `mavenLocal()` as before. No AAR in `libs/` is required.
+If no local adapter AAR is present, the plugin uses:
 
-## AppLovin MAX
+`com.bidscube:applovin-bidscube-max-adapter-full-video:1.2.10`
 
-The plugin adds **`com.applovin:applovin-sdk`** **13.0+** so native mediation adapters target the MAX **13.x** line without a separate AppLovin declaration in the host app (you may still add one; Gradle resolves a single version).
+Publish or consume from Maven Central / `mavenLocal()` as needed.
 
-## Transitive libraries
+## Do not use for MAX mediation
 
-Keep the `implementation` lines in [`build.gradle`](../build.gradle) aligned with the native Bidscube SDK’s Gradle catalog when you upgrade the AAR.
+`com.bidscube:bidscube-sdk` **alone** does not ship `BidscubeMediationAdapter`. Do not place only `bidscube-sdk-*.aar` in `libs/` when integrating AppLovin MAX.
+
+## Verify adapter presence
+
+From the Flutter app:
+
+```bash
+cd android && ./gradlew :app:dependencies | grep -i bidscube
+```
+
+From this plugin module:
+
+```bash
+./gradlew verifyBidscubeMaxAdapter
+```
+
+Inspect the release APK / merged dex for `BidscubeMediationAdapter`.
+
+## Flutter default adapter mode
+
+The Flutter package defaults to **`full-video`** (banner, interstitial, rewarded with IMA VAST). Android exposes four adapter artifacts in the native repo; Flutter does not expose those modes in Dart — pick one artifact here for the whole app.

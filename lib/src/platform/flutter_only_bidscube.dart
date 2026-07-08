@@ -52,9 +52,11 @@ class FlutterOnlyBidscube extends BidscubePlatform {
   Future<Widget> getBannerAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
+    double width = Constants.defaultAdWidth,
+    double height = Constants.defaultBannerHeight,
+  }) async {
     try {
       if (callback != null) {
         _callbacks[placementId] = callback;
@@ -72,10 +74,7 @@ class FlutterOnlyBidscube extends BidscubePlatform {
             callback: callback,
           );
           // Return an empty placeholder since host will render the ad themselves
-          return SizedBox(
-            width: Constants.defaultAdWidth,
-            height: Constants.defaultAdHeight,
-          );
+          return SizedBox(width: width, height: height);
         }
       }
 
@@ -97,9 +96,11 @@ class FlutterOnlyBidscube extends BidscubePlatform {
   Future<Widget> getVideoAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
+    double width = Constants.defaultAdWidth,
+    double height = 180,
+  }) async {
     try {
       SDKDiagnostics.logAdRequestPhase(
         placementId: placementId,
@@ -122,10 +123,7 @@ class FlutterOnlyBidscube extends BidscubePlatform {
             position: position,
             callback: callback,
           );
-          return SizedBox(
-            width: Constants.defaultAdWidth,
-            height: Constants.defaultAdHeight,
-          );
+          return SizedBox(width: width, height: height);
         }
       }
 
@@ -141,8 +139,8 @@ class FlutterOnlyBidscube extends BidscubePlatform {
             baseUrl: _adClient.baseUrl,
             position: position,
             callback: callback,
-            width: Constants.defaultAdWidth,
-            height: Constants.defaultAdHeight,
+            width: width,
+            height: height,
             borderRadius: borderRadius,
           ),
         );
@@ -152,13 +150,17 @@ class FlutterOnlyBidscube extends BidscubePlatform {
         placementId: placementId,
         route: 'ima_default_widget',
       );
-      return ImaVastVideoAdView(
-        placementId: placementId,
-        callback: callback,
-        baseUrl: _adClient.baseUrl,
-        adType: AdType.video,
-        position: position,
-        borderRadius: borderRadius,
+      return SizedBox(
+        width: width,
+        height: height,
+        child: ImaVastVideoAdView(
+          placementId: placementId,
+          callback: callback,
+          baseUrl: _adClient.baseUrl,
+          adType: AdType.video,
+          position: position,
+          borderRadius: borderRadius,
+        ),
       );
     } catch (e) {
       SDKLogger.error('Failed to get video ad view', e);
@@ -170,9 +172,11 @@ class FlutterOnlyBidscube extends BidscubePlatform {
   Future<Widget> getNativeAdView(
     String placementId,
     AdCallback? callback,
-    AdPosition position, [
+    AdPosition position, {
     double? borderRadius,
-  ]) async {
+    double width = Constants.defaultAdWidth,
+    double height = 250,
+  }) async {
     try {
       if (callback != null) {
         _callbacks[placementId] = callback;
@@ -187,10 +191,7 @@ class FlutterOnlyBidscube extends BidscubePlatform {
             position: position,
             callback: callback,
           );
-          return SizedBox(
-            width: Constants.defaultAdWidth,
-            height: Constants.defaultAdHeight,
-          );
+          return SizedBox(width: width, height: height);
         }
       }
 

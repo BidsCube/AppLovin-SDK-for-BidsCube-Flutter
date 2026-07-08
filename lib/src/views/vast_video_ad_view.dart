@@ -282,10 +282,7 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
       _vastAd?.companionPreviewUrl?.isNotEmpty == true;
 
   Widget _scaffold(Widget body, {Color backgroundColor = Colors.black}) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: body,
-    );
+    return Scaffold(backgroundColor: backgroundColor, body: body);
   }
 
   Widget _buildSkipControl() {
@@ -344,7 +341,11 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.play_circle_outline, color: Colors.white70, size: 64),
+          const Icon(
+            Icons.play_circle_outline,
+            color: Colors.white70,
+            size: 64,
+          ),
           const SizedBox(height: 16),
           Text(
             clickUrl != null ? 'Tap to learn more' : 'Thanks for watching',

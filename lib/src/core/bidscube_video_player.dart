@@ -30,5 +30,5 @@ class BidscubeVideoPlayerBuildContext {
 /// Return a widget that loads/plays VAST or progressive video using your own player.
 /// When set on [SDKConfig.customVideoPlayerBuilder], the Flutter-only path uses it
 /// instead of the default IMA stack for [BidscubeSDK.getVideoAdView].
-typedef BidscubeCustomVideoPlayerBuilder =
-    Widget Function(BidscubeVideoPlayerBuildContext context);
+typedef BidscubeCustomVideoPlayerBuilder = Widget Function(
+    BidscubeVideoPlayerBuildContext context);

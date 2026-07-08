@@ -8,6 +8,7 @@ import android.view.View
 import com.bidscube.sdk.BidscubeSDK
 import com.bidscube.sdk.config.SDKConfig
 import com.bidscube.sdk.interfaces.AdCallback
+import com.bidscube.sdk.interfaces.ConsentCallback
 import com.bidscube.sdk.models.enums.AdPosition
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
@@ -82,24 +83,37 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
             }
             "getImageAdView" -> {
                 val placementId = call.argument<String>("placementId")
-                loadNativeAdView(placementId, NativeAdKind.IMAGE, result)
+                loadNativeAdView(placementId, NativeAdKind.IMAGE, call, result)
             }
             "getVideoAdView" -> {
                 val placementId = call.argument<String>("placementId")
-                loadNativeAdView(placementId, NativeAdKind.VIDEO, result)
+                loadNativeAdView(placementId, NativeAdKind.VIDEO, call, result)
             }
             "getNativeAdView" -> {
                 val placementId = call.argument<String>("placementId")
-                loadNativeAdView(placementId, NativeAdKind.NATIVE, result)
+                loadNativeAdView(placementId, NativeAdKind.NATIVE, call, result)
             }
             "getBannerAdView" -> {
                 val placementId = call.argument<String>("placementId")
-                loadNativeAdView(placementId, NativeAdKind.BANNER, result)
+                loadNativeAdView(placementId, NativeAdKind.BANNER, call, result)
             }
             "showVideoAdFromVast" -> showVideoAdFromVast(call, result)
             "requestAd", "removeAdCallback" -> result.success(null)
-            "requestConsentInfoUpdate" -> result.success("ok")
-            "showConsentForm" -> result.success("ok")
+            "isConsentRequired" -> result.success(BidscubeSDK.isConsentRequired())
+            "hasAdsConsent" -> result.success(BidscubeSDK.hasAdsConsent())
+            "hasAnalyticsConsent" -> result.success(BidscubeSDK.hasAnalyticsConsent())
+            "getConsentStatusSummary" -> result.success(BidscubeSDK.getConsentStatusSummary())
+            "enableConsentDebugMode" -> {
+                val deviceId = call.argument<String>("testDeviceId") ?: ""
+                BidscubeSDK.enableConsentDebugMode(deviceId)
+                result.success(null)
+            }
+            "resetConsent" -> {
+                BidscubeSDK.resetConsent()
+                result.success(null)
+            }
+            "requestConsentInfoUpdate" -> requestConsentInfoUpdate(result)
+            "showConsentForm" -> showConsentForm(result)
             "getSKAdNetworkIds" -> result.success(emptyList<String>())
             else -> result.notImplemented()
         }
@@ -205,9 +219,38 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         return false
     }
 
+    private fun requestConsentInfoUpdate(result: MethodChannel.Result) {
+        val messenger = flutterBinding?.binaryMessenger ?: run {
+            result.error("NO_ENGINE", "Flutter engine not available", null)
+            return
+        }
+        if (!BidscubeSDK.isInitialized()) {
+            result.error("NOT_INITIALIZED", "BidscubeSDK is not initialized", null)
+            return
+        }
+        BidscubeSDK.requestConsentInfoUpdate(
+            DartConsentCallback(MethodChannel(messenger, CHANNEL_NAME), result),
+        )
+    }
+
+    private fun showConsentForm(result: MethodChannel.Result) {
+        val messenger = flutterBinding?.binaryMessenger ?: run {
+            result.error("NO_ENGINE", "Flutter engine not available", null)
+            return
+        }
+        if (!BidscubeSDK.isInitialized()) {
+            result.error("NOT_INITIALIZED", "BidscubeSDK is not initialized", null)
+            return
+        }
+        BidscubeSDK.showConsentForm(
+            DartConsentCallback(MethodChannel(messenger, CHANNEL_NAME), result),
+        )
+    }
+
     private fun loadNativeAdView(
         placementId: String?,
         kind: NativeAdKind,
+        call: MethodCall,
         result: MethodChannel.Result,
     ) {
         if (placementId.isNullOrBlank()) {
@@ -233,7 +276,18 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 NativeAdKind.BANNER -> BidscubeSDK.getImageAdView(placementId, cb)
             }
             viewRegistry[viewKey] = view
-            result.success(mapOf("viewKey" to viewKey))
+            val (defaultWidth, defaultHeight) = defaultSizeForKind(kind)
+            val width = (call.argument<Number>("width")?.toDouble() ?: defaultWidth).toInt()
+            val height = (call.argument<Number>("height")?.toDouble() ?: defaultHeight).toInt()
+            val measuredWidth = if (view.width > 0) view.width else width
+            val measuredHeight = if (view.height > 0) view.height else height
+            result.success(
+                mapOf(
+                    "viewKey" to viewKey,
+                    "width" to measuredWidth.toDouble(),
+                    "height" to measuredHeight.toDouble(),
+                ),
+            )
         } catch (e: Exception) {
             result.error("NATIVE_AD_ERROR", e.message, null)
         }
@@ -304,12 +358,85 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
         method.invoke(null, placementId, vastXml, callback)
     }
 
+    private fun defaultSizeForKind(kind: NativeAdKind): Pair<Double, Double> = when (kind) {
+        NativeAdKind.BANNER -> 320.0 to 50.0
+        NativeAdKind.VIDEO -> 320.0 to 180.0
+        NativeAdKind.NATIVE -> 320.0 to 250.0
+        NativeAdKind.IMAGE -> 320.0 to 50.0
+    }
+
     private enum class NativeAdKind { IMAGE, VIDEO, NATIVE, BANNER }
 
     companion object {
         private const val TAG = "BidscubeFlutter"
         private const val CHANNEL_NAME = "bidscube_sdk"
         private const val PLATFORM_VIEW_TYPE = "bidscube_native_ad"
+    }
+}
+
+/** Forwards native [ConsentCallback] events to Dart. */
+private class DartConsentCallback(
+    private val channel: MethodChannel,
+    private val result: MethodChannel.Result,
+) : ConsentCallback {
+    private val finished = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun runMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            block()
+        } else {
+            Handler(Looper.getMainLooper()).post { block() }
+        }
+    }
+
+    private fun push(method: String, args: Map<String, Any?>) {
+        runMain { channel.invokeMethod(method, args) }
+    }
+
+    private fun finishSuccess() {
+        if (!finished.compareAndSet(false, true)) return
+        runMain { result.success(null) }
+    }
+
+    private fun finishError(code: String, message: String) {
+        if (!finished.compareAndSet(false, true)) return
+        runMain { result.error(code, message, null) }
+    }
+
+    override fun onConsentInfoUpdated() {
+        push("onConsentInfoUpdated", mapOf("placementId" to "_consent_"))
+        finishSuccess()
+    }
+
+    override fun onConsentInfoUpdateFailed(error: Exception?) {
+        finishError("CONSENT_INFO_FAILED", error?.message ?: "Consent info update failed")
+    }
+
+    override fun onConsentFormShown() {
+        push("onConsentFormShown", mapOf("placementId" to "_consent_"))
+    }
+
+    override fun onConsentFormError(error: Exception?) {
+        finishError("CONSENT_FORM_ERROR", error?.message ?: "Consent form error")
+    }
+
+    override fun onConsentGranted() {
+        push("onConsentGranted", mapOf("placementId" to "_consent_"))
+        finishSuccess()
+    }
+
+    override fun onConsentDenied() {
+        push("onConsentDenied", mapOf("placementId" to "_consent_"))
+        finishSuccess()
+    }
+
+    override fun onConsentNotRequired() {
+        push("onConsentNotRequired", mapOf("placementId" to "_consent_"))
+        finishSuccess()
+    }
+
+    override fun onConsentStatusChanged(hasConsent: Boolean) {
+        push("onConsentStatusChanged", mapOf("placementId" to "_consent_", "hasConsent" to hasConsent))
     }
 }
 

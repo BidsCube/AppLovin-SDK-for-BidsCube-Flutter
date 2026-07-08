@@ -63,17 +63,19 @@ void main() {
       );
     });
 
-    test('legacy integrationMode wire levelPlay maps to appLovinMaxMediation',
-        () {
-      final configFromMap = SDKConfig.fromMap({
-        'baseURL': 'https://ssp-bcc-ads.com/sdk',
-        'integrationMode': 'levelPlay',
-      });
-      expect(
-        configFromMap.integrationMode,
-        BidscubeIntegrationMode.appLovinMaxMediation,
-      );
-    });
+    test(
+      'legacy integrationMode wire levelPlay maps to appLovinMaxMediation',
+      () {
+        final configFromMap = SDKConfig.fromMap({
+          'baseURL': 'https://ssp-bcc-ads.com/sdk',
+          'integrationMode': 'levelPlay',
+        });
+        expect(
+          configFromMap.integrationMode,
+          BidscubeIntegrationMode.appLovinMaxMediation,
+        );
+      },
+    );
 
     test('AdType should have correct string values', () {
       expect(AdType.video.value, 'video');

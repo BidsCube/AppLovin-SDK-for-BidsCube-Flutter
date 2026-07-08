@@ -1,6 +1,6 @@
 import Flutter
 import UIKit
-import bidscubeSdk
+import BidscubeSDK
 
 public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
     private var registrar: FlutterPluginRegistrar?
@@ -23,19 +23,19 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
         case "getImageAdView":
             let args = call.arguments as? [String: Any]
             let placementId = args?["placementId"] as? String
-            getImageAdView(placementId: placementId, result: result)
+            getImageAdView(placementId: placementId, args: args, result: result)
         case "getVideoAdView":
             let args = call.arguments as? [String: Any]
             let placementId = args?["placementId"] as? String
-            getVideoAdView(placementId: placementId, result: result)
+            getVideoAdView(placementId: placementId, args: args, result: result)
         case "getNativeAdView":
             let args = call.arguments as? [String: Any]
             let placementId = args?["placementId"] as? String
-            getNativeAdView(placementId: placementId, result: result)
+            getNativeAdView(placementId: placementId, args: args, result: result)
         case "getBannerAdView":
             let args = call.arguments as? [String: Any]
             let placementId = args?["placementId"] as? String
-            getBannerAdView(placementId: placementId, result: result)
+            getBannerAdView(placementId: placementId, args: args, result: result)
         case "requestAd":
             let args = call.arguments as? [String: Any]
             let placementId = args?["placementId"] as? String
@@ -50,6 +50,22 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             requestConsentInfoUpdate(result: result)
         case "showConsentForm":
             showConsentForm(result: result)
+        case "isConsentRequired":
+            result(BidscubeSDK.isConsentRequired())
+        case "hasAdsConsent":
+            result(BidscubeSDK.hasAdsConsent())
+        case "hasAnalyticsConsent":
+            result(BidscubeSDK.hasAnalyticsConsent())
+        case "getConsentStatusSummary":
+            result(BidscubeSDK.getConsentStatusSummary())
+        case "enableConsentDebugMode":
+            let args = call.arguments as? [String: Any]
+            let testDeviceId = args?["testDeviceId"] as? String ?? ""
+            BidscubeSDK.enableConsentDebugMode(testDeviceId)
+            result(nil)
+        case "resetConsent":
+            BidscubeSDK.resetConsent()
+            result(nil)
         case "getSKAdNetworkIds":
             getSKAdNetworkIds(result: result)
         case "showVideoAdFromVast":
@@ -101,16 +117,26 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
         placementId: String,
         storageKey: String,
         delegate: FlutterAdDelegate,
+        args: [String: Any]?,
+        defaultSize: CGSize,
         result: @escaping FlutterResult
     ) {
         adDelegates[storageKey] = delegate
         let viewFactory = NativeAdViewFactory(adView: adView)
         let viewId = "bc_native_\(UUID().uuidString)"
         registrar?.register(viewFactory, withId: viewId)
-        result(["viewId": viewId])
+        let width = (args?["width"] as? NSNumber)?.doubleValue ?? defaultSize.width
+        let height = (args?["height"] as? NSNumber)?.doubleValue ?? defaultSize.height
+        let measuredWidth = adView.bounds.width > 0 ? adView.bounds.width : width
+        let measuredHeight = adView.bounds.height > 0 ? adView.bounds.height : height
+        result([
+            "viewId": viewId,
+            "width": measuredWidth,
+            "height": measuredHeight,
+        ])
     }
 
-    private func getImageAdView(placementId: String?, result: @escaping FlutterResult) {
+    private func getImageAdView(placementId: String?, args: [String: Any]?, result: @escaping FlutterResult) {
         guard let placementId = placementId else {
             result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "Placement ID is required", details: nil))
             return
@@ -122,11 +148,13 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             placementId: placementId,
             storageKey: "image_\(placementId)",
             delegate: adDelegate,
+            args: args,
+            defaultSize: CGSize(width: 320, height: 50),
             result: result
         )
     }
 
-    private func getVideoAdView(placementId: String?, result: @escaping FlutterResult) {
+    private func getVideoAdView(placementId: String?, args: [String: Any]?, result: @escaping FlutterResult) {
         guard let placementId = placementId else {
             result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "Placement ID is required", details: nil))
             return
@@ -139,11 +167,13 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             placementId: placementId,
             storageKey: "video_\(placementId)",
             delegate: adDelegate,
+            args: args,
+            defaultSize: CGSize(width: 320, height: 180),
             result: result
         )
     }
 
-    private func getNativeAdView(placementId: String?, result: @escaping FlutterResult) {
+    private func getNativeAdView(placementId: String?, args: [String: Any]?, result: @escaping FlutterResult) {
         guard let placementId = placementId else {
             result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "Placement ID is required", details: nil))
             return
@@ -155,12 +185,14 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             placementId: placementId,
             storageKey: "native_\(placementId)",
             delegate: adDelegate,
+            args: args,
+            defaultSize: CGSize(width: 320, height: 250),
             result: result
         )
     }
 
     /// Banner / image inventory: same native path as the MAX banner adapter (`getImageAdView`).
-    private func getBannerAdView(placementId: String?, result: @escaping FlutterResult) {
+    private func getBannerAdView(placementId: String?, args: [String: Any]?, result: @escaping FlutterResult) {
         guard let placementId = placementId else {
             result(FlutterError(code: "INVALID_PLACEMENT_ID", message: "Placement ID is required", details: nil))
             return
@@ -172,6 +204,8 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             placementId: placementId,
             storageKey: "banner_\(placementId)",
             delegate: adDelegate,
+            args: args,
+            defaultSize: CGSize(width: 320, height: 50),
             result: result
         )
     }
@@ -191,11 +225,13 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
     }
 
     private func requestConsentInfoUpdate(result: @escaping FlutterResult) {
-        result("ok")
+        let delegate = FlutterConsentDelegate(channel: methodChannel, result: result)
+        BidscubeSDK.requestConsentInfoUpdate(callback: delegate)
     }
 
     private func showConsentForm(result: @escaping FlutterResult) {
-        result("ok")
+        let delegate = FlutterConsentDelegate(channel: methodChannel, result: result)
+        BidscubeSDK.showConsentForm(delegate)
     }
 
     private func getSKAdNetworkIds(result: @escaping FlutterResult) {
@@ -258,6 +294,78 @@ class NativeAdPlatformView: NSObject, FlutterPlatformView {
     func view() -> UIView {
         adView.frame = frame
         return adView
+    }
+}
+
+// MARK: - Flutter Consent Delegate
+class FlutterConsentDelegate: NSObject, ConsentCallback {
+    private weak var channel: FlutterMethodChannel?
+    private var result: FlutterResult?
+    private var finished = false
+
+    init(channel: FlutterMethodChannel?, result: @escaping FlutterResult) {
+        self.channel = channel
+        self.result = result
+    }
+
+    private func push(_ method: String, _ arguments: [String: Any]) {
+        DispatchQueue.main.async { [weak self] in
+            self?.channel?.invokeMethod(method, arguments: arguments)
+        }
+    }
+
+    private func finishSuccess() {
+        guard !finished else { return }
+        finished = true
+        DispatchQueue.main.async { [weak self] in
+            self?.result?(nil)
+            self?.result = nil
+        }
+    }
+
+    private func finishError(code: String, message: String) {
+        guard !finished else { return }
+        finished = true
+        DispatchQueue.main.async { [weak self] in
+            self?.result?(FlutterError(code: code, message: message, details: nil))
+            self?.result = nil
+        }
+    }
+
+    func onConsentInfoUpdated() {
+        push("onConsentInfoUpdated", ["placementId": "_consent_"])
+        finishSuccess()
+    }
+
+    func onConsentInfoUpdateFailed(_ error: Error) {
+        finishError(code: "CONSENT_INFO_FAILED", message: error.localizedDescription)
+    }
+
+    func onConsentFormShown() {
+        push("onConsentFormShown", ["placementId": "_consent_"])
+    }
+
+    func onConsentFormError(_ error: Error) {
+        finishError(code: "CONSENT_FORM_ERROR", message: error.localizedDescription)
+    }
+
+    func onConsentGranted() {
+        push("onConsentGranted", ["placementId": "_consent_"])
+        finishSuccess()
+    }
+
+    func onConsentDenied() {
+        push("onConsentDenied", ["placementId": "_consent_"])
+        finishSuccess()
+    }
+
+    func onConsentNotRequired() {
+        push("onConsentNotRequired", ["placementId": "_consent_"])
+        finishSuccess()
+    }
+
+    func onConsentStatusChanged(_ hasConsent: Bool) {
+        push("onConsentStatusChanged", ["placementId": "_consent_", "hasConsent": hasConsent])
     }
 }
 

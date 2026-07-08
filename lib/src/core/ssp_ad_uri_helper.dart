@@ -54,12 +54,7 @@ Uri buildSdkBaseUri(String normalizedAuthority) {
   final a = normalizeAdRequestAuthority(normalizedAuthority);
   final p = parseSspAuthority(a);
   if (p.port != null) {
-    return Uri(
-      scheme: 'https',
-      host: p.host,
-      port: p.port,
-      path: '/sdk',
-    );
+    return Uri(scheme: 'https', host: p.host, port: p.port, path: '/sdk');
   }
   return Uri(scheme: 'https', host: p.host, path: '/sdk');
 }

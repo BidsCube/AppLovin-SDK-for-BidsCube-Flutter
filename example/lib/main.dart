@@ -64,9 +64,7 @@ class HomeScreen extends StatelessWidget {
             FilledButton.icon(
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const QaVastScreen(),
-                  ),
+                  MaterialPageRoute<void>(builder: (_) => const QaVastScreen()),
                 );
               },
               icon: const Icon(Icons.play_circle_outline),

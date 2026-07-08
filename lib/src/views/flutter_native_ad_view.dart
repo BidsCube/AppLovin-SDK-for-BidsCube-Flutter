@@ -256,10 +256,9 @@ class _FlutterNativeAdViewState extends State<FlutterNativeAdView> {
         SDKLogger.info(
           '[IMP_TRACK] send placement=${widget.placementId} index=$i url=$tracker',
         );
-        final response =
-            await http.get(uri, headers: await _requestHeaders()).timeout(
-                  const Duration(seconds: 10),
-                );
+        final response = await http
+            .get(uri, headers: await _requestHeaders())
+            .timeout(const Duration(seconds: 10));
         final bodyPreview = _short(response.body, 180);
         SDKLogger.info(
           '[IMP_TRACK] result placement=${widget.placementId} index=$i status=${response.statusCode} body="$bodyPreview"',

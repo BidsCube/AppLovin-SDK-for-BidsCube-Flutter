@@ -4,12 +4,12 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'bidscube_sdk_flutter'
-  s.version          = "1.2.2"
+  s.version          = "1.2.3"
   s.summary          = 'BidsCube Flutter plugin: AppLovin MAX 13+ mediation + direct ad widgets on Android/iOS.'
   s.description      = <<-DESC
 Flutter plugin bridging to native BidscubeSDK for AppLovin MAX mediation adapters
 and for direct banner, video, and native ad widgets via PlatformViews.
-Supports vendored Bidscube XCFramework under ios/Frameworks for self-contained builds.
+Pulls BidscubeSDKAppLovin (runtime + ALBidscubeMediationAdapter) or optional vendored XCFrameworks.
                        DESC
   s.homepage         = 'https://github.com/bidscube/bidscube-sdk-flutter'
   s.license          = { :file => '../LICENSE' }
@@ -17,18 +17,19 @@ Supports vendored Bidscube XCFramework under ios/Frameworks for self-contained b
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.dependency 'AppLovinSDK', '~> 13.0'
-  s.platform = :ios, '13.0'
+  s.platform = :ios, '15.0'
 
   frameworks_dir = File.expand_path('Frameworks', __dir__)
   vendored_xcs = Dir[File.join(frameworks_dir, '*.xcframework')]
   if vendored_xcs.any?
     s.vendored_frameworks = vendored_xcs.map { |abs| 'Frameworks/' + File.basename(abs) }
+    # Vendored runtime-only XCFrameworks do not include ALBidscubeMediationAdapter.
+    # For MAX mediation QA, prefer the BidscubeSDKAppLovin pod (no vendored frameworks).
+    s.dependency 'AppLovinSDK', '>= 13.0.0', '< 14.0'
   else
-    s.dependency 'bidscubeSdk', '1.0.0'
+    s.dependency 'BidscubeSDKAppLovin', '~> 1.1.0'
   end
 
-  # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'
 end

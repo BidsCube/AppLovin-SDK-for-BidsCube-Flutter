@@ -1,6 +1,13 @@
-# Exclude from `dart pub publish` (keeps the package tarball small).
+.git/
+.github/
 build/
 .dart_tool/
-*.iml
 example/build/
 example/.dart_tool/
+__MACOSX/
+.DS_Store
+._*
+*.iml
+.flutter-plugins-dependencies
+pubspec.lock
+example/pubspec.lock

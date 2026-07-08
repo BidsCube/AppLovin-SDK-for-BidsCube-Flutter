@@ -3,6 +3,7 @@
 
 pubspec.lock
 build
+android/.gradle
 *.iml
 ios/.build
 .DS_Store

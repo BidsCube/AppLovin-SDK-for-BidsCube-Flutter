@@ -6,33 +6,48 @@ Flutter plugin for **BidCube** demand on **Android** and **iOS**, with **AppLovi
 
 **Native iOS only (no Flutter):** https://github.com/BidsCube/AppLovin-SDK-for-BidsCube-iOS  
 
+**Native Android only (no Flutter):** https://github.com/BidsCube/AppLovin-SDK-for-BidsCube-Android  
+
 ## Requirements
 
 - **Flutter** 3.19+ / **Dart** 3.5+
 - **Android** minSdk **24**
-- **iOS** **13.0+**
-- **CocoaPods:** resolved via the plugin’s [`ios/bidscube_sdk_flutter.podspec`](ios/bidscube_sdk_flutter.podspec) — `AppLovinSDK` **~> 13.0** and Bidscube native (vendored `ios/Frameworks/*.xcframework` **or** pod `bidscubeSdk`)
-- **Gradle:** `AppLovinSDK` **13.x** + Bidscube AAR (see [`android/build.gradle`](android/build.gradle)); optional local AAR in [`android/libs/`](android/libs/)
+- **iOS** **15.0+** (matches `BidscubeSDKAppLovin`)
+- **Android Gradle:** `com.bidscube:applovin-bidscube-max-adapter-full-video:1.2.10` (default) or local adapter AAR in [`android/libs/`](android/libs/)
+- **iOS CocoaPods:** `BidscubeSDKAppLovin ~> 1.1.0` via this plugin’s podspec (or vendored XCFramework — see [`ios/Frameworks/`](ios/Frameworks/))
+- **AppLovin MAX SDK:** 13.x (pulled transitively by native adapter pods/AARs)
 - **Xcode** 14+ recommended
 
 In MAX, put the **BidCube placement ID** in the custom network **App ID** field (see below).
 
+### Version alignment
+
+| Component | Version |
+|-----------|---------|
+| Flutter package (`bidscube_sdk_flutter`) | **1.2.3** |
+| Android MAX adapter (default `full-video`) | **1.2.10** |
+| iOS MAX pod (`BidscubeSDKAppLovin`) | **1.1.0** |
+| AppLovin MAX SDK | **13.x** |
+
+### Integration modes
+
+**Direct SDK mode** — initialize with `BidscubeIntegrationMode.directSdk`, then use `getBannerAdView`, `getVideoAdView`, `getNativeAdView`, `requestAd`, and `showVideoAdFromVast`.
+
+**AppLovin MAX mediation mode** — initialize with `BidscubeIntegrationMode.appLovinMaxMediation` and `useFlutterOnly: false` so the native Bidscube runtime is ready for MAX adapters. Load and show ads through **`applovin_max`** (or native MAX APIs). Do **not** call Bidscube Dart widget APIs in this mode.
+
 ### Diagnostics and logging
 
-Search logs for **`[BidsCubeDiag]`** and the **`BidsCubeSDK`** logger name. `BidscubeSDK.initialize` applies `SDKConfig.enableLogging` / `enableDebugMode` to `SDKLogger` before starting the bridge. You will see: **`init_start`** (Flutter-only vs native, integration mode, base URL), **`bidscube_native_bridge`** / **`bidscube_flutter_only`** when init completes, **`applovin_max`** (reminder that MAX must be started in the host app — the plugin only shares native Bidscube), **`ad_load`** / **`video_player`** phases (including IMA vs custom player route), and on **Android Logcat** / **Xcode** native lines **`[BidsCubeDiag] bidscube_native init_ok`** plus **`ad_load_native`** per placement.
+Search logs for **`[BidsCubeDiag]`** and the **`BidsCubeSDK`** logger name. `BidscubeSDK.initialize` applies `SDKConfig.enableLogging` / `enableDebugMode` to `SDKLogger` before starting the bridge.
 
 ### Custom video player (Flutter-only)
 
-With **`useFlutterOnly: true`**, pass **`SDKConfigBuilder.customVideoPlayerBuilder((ctx) => YourWidget(...))`** — `ctx` is a [`BidscubeVideoPlayerBuildContext`](lib/src/core/bidscube_video_player.dart) (`placementId`, `baseUrl`, `callback`, size, etc.). Your widget replaces the default **`ImaVastVideoAdView`**. Does not apply to the native **`getVideoAdView`** PlatformView path. If you only need to render after the HTTP response, **`onAdRenderOverride`** on [`AdCallback`](lib/src/core/callbacks.dart) remains supported.
+With **`useFlutterOnly: true`**, pass **`SDKConfigBuilder.customVideoPlayerBuilder((ctx) => YourWidget(...))`**. Does not apply to the native **`getVideoAdView`** PlatformView path.
 
 ### QA — VAST preview / end card (no backend)
 
-[`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart) ships two hardcoded VAST XML strings:
+[`QaVastFixtures`](lib/src/core/qa_vast_fixtures.dart) ships hardcoded VAST XML for local QA. Run the in-repo **`example/`** app (direct SDK / Flutter-only QA only).
 
-1. **No preview** — DoorDash MP4 only; end card uses the existing fallback UI (not skipped when companion is missing).
-2. **With preview** — skippable Big Buck Bunny + Companion `StaticResource`; end card shows the parsed image; tap opens `https://www.google.com`.
-
-Run the example app (`example/`), tap **QA — VAST preview tests**, or call **`BidscubeSDK.showVideoAdFromVast`** / push [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart) with fixture XML. Filter logs: **`[BidsCubeDiag] vast_parsed`**, **`end_card_show`**, **`[QA-VAST]`** callback order.
+The **AppLovin MAX mediation QA app** lives next to this repository as a sibling project: **`BidscubeFlutterAppLovinTestApp/`**.
 
 ---
 
@@ -42,42 +57,19 @@ Run the example app (`example/`), tap **QA — VAST preview tests**, or call **`
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.2.2
+  bidscube_sdk_flutter: ^1.2.3
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 
 ```dart
 import 'package:bidscube_sdk_flutter/bidscube_sdk_flutter.dart';
+import 'package:applovin_max/applovin_max.dart';
 ```
 
 ```bash
 flutter pub get
 cd ios && pod install && cd ..
 ```
-
-### iOS `Podfile` (host app)
-
-Use at least:
-
-```ruby
-platform :ios, '13.0'
-use_frameworks!
-```
-
-Let `flutter_install_all_ios_pods` pull `bidscube_sdk_flutter` — **do not** add a second Bidscube pod target for the same runtime unless you know you need an override (avoid duplicate symbols).
-
-**CocoaPods (parity with standalone iOS SDK):** the consolidated iOS product is **`BidscubeSDKAppLovin`** (runtime + adapter). In Flutter, that stack is normally supplied through this plugin’s podspec; for a **Swift/iOS-only** app use:
-
-```ruby
-pod 'AppLovinSDK', '>= 13.0.0', '< 14.0'
-pod 'BidscubeSDKAppLovin', '1.0.3'
-```
-
-Then `pod install` and open **`.xcworkspace`**.
-
-### Android
-
-No extra Gradle lines are required in the app if the plugin is the only Bidscube entry point; the plugin applies `com.applovin:applovin-sdk` and Bidscube AAR/Maven. Use **core desugaring** if your app already does (see [`example/android/app/build.gradle.kts`](example/android/app/build.gradle.kts)).
 
 ### Mediation init (Flutter)
 
@@ -90,7 +82,52 @@ await BidscubeSDK.initialize(
 );
 ```
 
-Then use **MAX** APIs (`applovin_max` or platform channels). Do **not** use Dart `getBannerAdView` / `getVideoAdView` / `getNativeAdView` in `appLovinMaxMediation` mode.
+Then initialize and drive ads with **AppLovin MAX** — not Bidscube widgets:
+
+```dart
+// Example only. Use real ad unit IDs from the AppLovin MAX dashboard.
+await AppLovinMAX.initialize('YOUR_APPLOVIN_SDK_KEY');
+
+AppLovinMAX.createBanner('YOUR_MAX_BANNER_AD_UNIT_ID', AdViewPosition.bottomCenter);
+AppLovinMAX.createMRec('YOUR_MAX_MREC_AD_UNIT_ID', AdViewPosition.bottomCenter);
+AppLovinMAX.loadInterstitial('YOUR_MAX_INTERSTITIAL_AD_UNIT_ID');
+AppLovinMAX.showInterstitial('YOUR_MAX_INTERSTITIAL_AD_UNIT_ID');
+AppLovinMAX.loadRewardedAd('YOUR_MAX_REWARDED_AD_UNIT_ID');
+AppLovinMAX.showRewardedAd('YOUR_MAX_REWARDED_AD_UNIT_ID');
+```
+
+> **Warning:** Do not call `BidscubeSDK.getBannerAdView`, `getVideoAdView`, `getNativeAdView`, `requestAd`, or `showVideoAdFromVast` in AppLovin MAX mediation mode. Those APIs are for **direct SDK mode** only.
+
+### iOS `Podfile` (host app)
+
+```ruby
+platform :ios, '15.0'
+use_frameworks!
+```
+
+Let `flutter_install_all_ios_pods` pull `bidscube_sdk_flutter`. The plugin depends on **`BidscubeSDKAppLovin`** (~> 1.1.0), which pulls `AppLovinSDK` and the Bidscube runtime. **Do not** add duplicate Bidscube pods unless you intentionally override versions.
+
+For a **Swift/iOS-only** app (no Flutter):
+
+```ruby
+pod 'BidscubeSDKAppLovin', '1.1.0'
+```
+
+### Android
+
+No extra Gradle lines are required in the host app when this plugin is the Bidscube entry point. The plugin applies:
+
+`com.bidscube:applovin-bidscube-max-adapter-full-video:1.2.10`
+
+Verify the merged app contains `com.applovin.mediation.adapters.BidscubeMediationAdapter`:
+
+```bash
+cd android && ./gradlew :app:dependencies | grep -i bidscube
+```
+
+From the plugin module: `./gradlew verifyBidscubeMaxAdapter`
+
+Use **core desugaring** in the host app if your stack already requires it (see [`example/android/app/build.gradle.kts`](example/android/app/build.gradle.kts)).
 
 ---
 
@@ -103,7 +140,7 @@ Follow AppLovin’s guide for custom SDK networks:
 2. **MAX → Mediation → Manage → Networks** → add a **Custom** network:  
    - **Network type:** SDK  
    - **Name:** Bidscube (or your label)  
-   - **Android adapter class:** `BidscubeMediationAdapter`  
+   - **Android adapter class:** `com.applovin.mediation.adapters.BidscubeMediationAdapter`  
    - **iOS adapter class:** `ALBidscubeMediationAdapter`  
 3. **MAX → Mediation → Manage → Ad Units** — enable Bidscube on each ad unit that should use it.
 
@@ -111,19 +148,28 @@ Follow AppLovin’s guide for custom SDK networks:
 
 | Field | Value |
 |--------|--------|
-| **Android adapter class** | `BidscubeMediationAdapter` |
+| **Android adapter class** | `com.applovin.mediation.adapters.BidscubeMediationAdapter` |
 | **iOS adapter class** | `ALBidscubeMediationAdapter` |
-| **App ID** | BidCube **placement ID** (MAX still labels this “App ID”; for this network it must be the placement ID) |
-| **Placement ID** | Optional; leave empty unless your MAX setup needs a second value |
-| **Server parameters** (optional) | `request_authority` or `ssp_host` — SSP host or `host:port` (normalized like standalone `adRequestAuthority`) |
-
-If `request_authority` or `ssp_host` is set, the adapter uses it as the ad request authority.
+| **App ID** | BidCube **placement ID** |
+| **Placement ID** | Optional |
+| **Server parameters** (optional) | `request_authority` or `ssp_host` |
 
 ---
 
 ## Supported ad formats
 
-Banner, MREC, Interstitial, Rewarded, Native (per native adapter capabilities).
+**Supported through AppLovin MAX mediation:**
+
+- **Android:** depends on the selected native Android adapter artifact (Flutter default: `full-video` → banner, interstitial, rewarded with IMA VAST; native MAX not supported on lite adapter).
+- **iOS:** Banner, MREC, Interstitial, Rewarded via `BidscubeSDKAppLovin` 1.1.0.
+- **Native MAX:** not supported unless the native Android/iOS adapters implement real native asset mapping (not advertised for current releases).
+
+**Direct SDK mode:**
+
+- Flutter direct widgets may support banner (320×50 default), video (320×180 default), and native (320×250 default) views depending on platform implementation.
+- MREC is not a separate direct widget API; use banner sizing or MAX for MREC inventory.
+
+For MAX mediation, ad sizing is owned by **AppLovin MAX**, not Bidscube Dart widgets.
 
 ---
 
@@ -136,8 +182,8 @@ Default integration mode: `BidscubeIntegrationMode.directSdk`. After `BidscubeSD
 
 ## Vendored native binaries (optional)
 
-- **Android:** `*bidscube*.aar` in [`android/libs/`](android/libs/) — [`android/libs/README.md`](android/libs/README.md)  
-- **iOS:** `*.xcframework` in [`ios/Frameworks/`](ios/Frameworks/) — [`ios/Frameworks/README.md`](ios/Frameworks/README.md)
+- **Android:** `applovin-bidscube-max-adapter-*.aar` in [`android/libs/`](android/libs/) — [`android/libs/README.md`](android/libs/README.md)  
+- **iOS:** `*.xcframework` in [`ios/Frameworks/`](ios/Frameworks/) — [`ios/Frameworks/README.md`](ios/Frameworks/README.md). Vendored runtime-only frameworks do **not** include `ALBidscubeMediationAdapter`; prefer the `BidscubeSDKAppLovin` pod for MAX QA.
 
 ---
 
@@ -146,33 +192,52 @@ Default integration mode: `BidscubeIntegrationMode.directSdk`. After `BidscubeSD
 - **Ads do not load:** confirm **App ID** is the correct BidCube **placement ID**.  
 - **SSP override:** use only host or `host:port` in `request_authority` / `ssp_host`.  
 - **Custom network not found:** class names must match exactly (`ALBidscubeMediationAdapter` / `BidscubeMediationAdapter`).  
-- **Native:** if your setup uses a native-specific local parameter, set `is_native = true` where applicable.  
 - **Build:** `flutter clean`, `pod install`, match Flutter/Dart and adapter versions.
 
 ---
 
-## Runtime behavior (Flutter + MAX)
+## Sample apps
 
-Call **`BidscubeSDK.initialize`** once at startup with **`appLovinMaxMediation`** and **`useFlutterOnly: false`** so the native Bidscube layer matches the MAX adapter. Then drive ads with your usual **MAX** APIs.  
-
-*(Pure native iOS with `BidscubeSDKAppLovin` only: the adapter may own runtime init — see the [iOS SDK repo](https://github.com/BidsCube/AppLovin-SDK-for-BidsCube-iOS).)*
-
----
-
-## Sample app (testing)
-
-From the repo **`example/`**:
+### In-repo `example/` (direct SDK / Flutter-only QA)
 
 ```bash
 cd example && flutter pub get && flutter run
 ```
 
-Point at a test SSP:
+The in-repo **`example/`** is for direct SDK and Flutter-only / VAST QA — not for full AppLovin MAX mediation QA.
 
-- **Dart:** `--dart-define=BIDSCUBE_SSP_AUTHORITY=host:port` (see `example/lib/main.dart`)  
-- **Native (iOS):** `bidcube.testSspAuthority` / `BIDSCUBE_TEST_SSP_AUTHORITY` where your native stack supports them  
+### Sibling MAX test app
 
-Ad request uses `https://<authority>/sdk` with query params aligned to the native SDK builders (`c`, `m`, device fields, etc.).
+```text
+workspace/
+  AppLovin-SDK-for-BidsCube-Flutter/
+  BidscubeFlutterAppLovinTestApp/
+```
+
+See [`../BidscubeFlutterAppLovinTestApp/README.md`](../BidscubeFlutterAppLovinTestApp/README.md).
+
+---
+
+## Validation
+
+```bash
+./scripts/validate-package.sh
+```
+
+Release archive (no `.git/`, `__MACOSX/`, or build artifacts):
+
+```bash
+cd AppLovin-SDK-for-BidsCube-Flutter
+git archive --format=zip --output ../AppLovin-SDK-for-BidsCube-Flutter-release.zip HEAD
+```
+
+Verify the archive is clean:
+
+```bash
+unzip -l ../AppLovin-SDK-for-BidsCube-Flutter-release.zip | grep -E '(^|/)(\.git|build/|\.dart_tool/|__MACOSX|\.DS_Store|/\._|pubspec\.lock$|\.flutter-plugins-dependencies$)' && exit 1 || true
+```
+
+See [`.pubignore`](.pubignore) for `dart pub publish` exclusions.
 
 ---
 
@@ -182,6 +247,6 @@ Ad request uses `https://<authority>/sdk` with query params aligned to the nativ
 
 ## Version
 
-**Bidscube Flutter SDK 1.2.2** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
+**Bidscube Flutter SDK 1.2.3** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
 
-Maintainers: [`RELEASE.md`](RELEASE.md) · `flutter test` · `flutter analyze`
+Maintainers: [`RELEASE.md`](RELEASE.md) · `./scripts/validate-package.sh`

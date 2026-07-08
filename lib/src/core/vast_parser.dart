@@ -48,7 +48,9 @@ class VastParser {
 
     final trackingEvents = <String, List<String>>{};
     final impressionUrls = <String>[];
-    for (final impressionElement in inlineElement.findAllElements('Impression')) {
+    for (final impressionElement in inlineElement.findAllElements(
+      'Impression',
+    )) {
       final url = impressionElement.innerText.trim();
       if (url.isNotEmpty) {
         impressionUrls.add(url);
@@ -145,7 +147,8 @@ class VastParser {
         VastMediaFile(
           url: mediaFileElement.innerText.trim(),
           type: mediaFileElement.getAttribute('type') ?? '',
-          width: int.tryParse(mediaFileElement.getAttribute('width') ?? '0') ?? 0,
+          width:
+              int.tryParse(mediaFileElement.getAttribute('width') ?? '0') ?? 0,
           height:
               int.tryParse(mediaFileElement.getAttribute('height') ?? '0') ?? 0,
           delivery: mediaFileElement.getAttribute('delivery') ?? 'progressive',
@@ -183,8 +186,9 @@ class VastParser {
         );
       }
 
-      for (final clickTrackingElement
-          in videoClicksElement.findAllElements('ClickTracking')) {
+      for (final clickTrackingElement in videoClicksElement.findAllElements(
+        'ClickTracking',
+      )) {
         videoClicks.add(
           VastVideoClick(
             type: 'ClickTracking',
@@ -209,12 +213,14 @@ class VastParser {
     XmlElement nonLinearElement,
   ) {
     final staticResources = <VastStaticResource>[];
-    for (final staticResourceElement
-        in nonLinearElement.findAllElements('StaticResource')) {
+    for (final staticResourceElement in nonLinearElement.findAllElements(
+      'StaticResource',
+    )) {
       staticResources.add(
         VastStaticResource(
           url: staticResourceElement.innerText.trim(),
-          creativeType: staticResourceElement.getAttribute('creativeType') ?? '',
+          creativeType:
+              staticResourceElement.getAttribute('creativeType') ?? '',
         ),
       );
     }
@@ -246,9 +252,9 @@ class VastParser {
 
     final companionRoots = <XmlElement>[
       ...creativeElement.findAllElements('Companion'),
-      ...creativeElement.findAllElements('CompanionAds').expand(
-            (ads) => ads.findAllElements('Companion'),
-          ),
+      ...creativeElement
+          .findAllElements('CompanionAds')
+          .expand((ads) => ads.findAllElements('Companion')),
     ];
 
     for (final companion in companionRoots) {

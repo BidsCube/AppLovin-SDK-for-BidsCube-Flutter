@@ -57,7 +57,8 @@ class BidscubeSDK {
       } else {
         SDKDiagnostics.logInitNativeBridgeOk();
       }
-      if (config.integrationMode == BidscubeIntegrationMode.appLovinMaxMediation) {
+      if (config.integrationMode ==
+          BidscubeIntegrationMode.appLovinMaxMediation) {
         SDKDiagnostics.logAppLovinMediationHint();
       }
       _isInitialized = true;
@@ -86,6 +87,8 @@ class BidscubeSDK {
     AdCallback? callback,
     AdPosition position = AdPosition.unknown,
     double? borderRadius,
+    double width = 320,
+    double height = 50,
   }) async {
     _checkInitialized();
     _assertDirectIntegrationForWidgets('getBannerAdView');
@@ -93,7 +96,9 @@ class BidscubeSDK {
       placementId,
       callback,
       position,
-      borderRadius,
+      borderRadius: borderRadius,
+      width: width,
+      height: height,
     );
   }
 
@@ -138,6 +143,8 @@ class BidscubeSDK {
     AdCallback? callback,
     AdPosition position = AdPosition.unknown,
     double? borderRadius,
+    double width = 320,
+    double height = 180,
   }) async {
     _checkInitialized();
     _assertDirectIntegrationForWidgets('getVideoAdView');
@@ -145,7 +152,9 @@ class BidscubeSDK {
       placementId,
       callback,
       position,
-      borderRadius,
+      borderRadius: borderRadius,
+      width: width,
+      height: height,
     );
   }
 
@@ -159,6 +168,8 @@ class BidscubeSDK {
     AdCallback? callback,
     AdPosition position = AdPosition.unknown,
     double? borderRadius,
+    double width = 320,
+    double height = 250,
   }) async {
     _checkInitialized();
     _assertDirectIntegrationForWidgets('getNativeAdView');
@@ -166,7 +177,9 @@ class BidscubeSDK {
       placementId,
       callback,
       position,
-      borderRadius,
+      borderRadius: borderRadius,
+      width: width,
+      height: height,
     );
   }
 

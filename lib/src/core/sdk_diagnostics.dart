@@ -59,8 +59,6 @@ class SDKDiagnostics {
     String? detail,
   }) {
     final extra = detail != null ? ' detail=$detail' : '';
-    SDKLogger.info(
-      '$_tag ad_load placement=$placementId phase=$phase$extra',
-    );
+    SDKLogger.info('$_tag ad_load placement=$placementId phase=$phase$extra');
   }
 }

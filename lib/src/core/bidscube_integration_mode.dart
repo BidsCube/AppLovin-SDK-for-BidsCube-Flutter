@@ -8,8 +8,11 @@ enum BidscubeIntegrationMode {
   /// Direct integration — use `getBannerAdView` / `FlutterOnlyBidscube` / native views.
   directSdk,
 
-  /// AppLovin MAX mediation — load/show via MAX; native `BidscubeMediationAdapter` calls
-  /// `getImageAdView` / `showImageAd` / `showVideoAd` / `getNativeAdView` (→ `MaxNativeAd`).
+  /// AppLovin MAX mediation — load/show via MAX. The native Bidscube MAX
+  /// adapters call the native Bidscube runtime internally for supported formats.
+  /// Current MAX-supported formats are banner/MREC/interstitial/rewarded,
+  /// depending on the native adapter package. Native MAX is not advertised
+  /// unless native adapters implement real native asset mapping.
   appLovinMaxMediation,
 }
 
