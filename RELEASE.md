@@ -27,18 +27,26 @@ Publishing runs via the GitHub Actions workflow **[`.github/workflows/release.ym
 4. In GitHub → **Actions** → workflow **Release (pub.dev + GitHub)** should:
    - verify the version matches the tag;
    - run `flutter test`, `analyze`, `pub publish --dry-run`;
-   - create a **GitHub Release** for the tag (right after green CI, independent of pub.dev success);
-   - publish to **pub.dev** (`dart pub publish -f`).
+   - create a **GitHub Release** for the tag;
+   - **skip pub.dev publish by default** (fast release, no OIDC hang).
+
+5. **Optional pub.dev publish** (only after OIDC is configured on pub.dev):
+   - GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **Variables** → add `PUB_DEV_PUBLISH_ENABLED` = `true`, **or**
+   - **Actions** → **Release (pub.dev + GitHub)** → **Run workflow** → check **Attempt pub.dev publish**.
 
 ## Manual check without a release
 
-**Actions** → **Release (pub.dev + GitHub)** → **Run workflow**: runs tests and `pub publish --dry-run` with no publish and no GitHub Release (no tag push event).
+**Actions** → **Release (pub.dev + GitHub)** → **Run workflow**: runs tests and `pub publish --dry-run` only (no GitHub Release, no pub.dev unless you check the publish box).
 
-## If publish hangs or is canceled after ~6 hours
+## If publish hangs on pub.dev
 
-GitHub Actions cancels jobs at the **6 hour** limit. If **Publish to pub.dev** hangs, it is usually because **automated publishing (OIDC)** is not enabled for this package on [pub.dev](https://pub.dev/packages/bidscube_sdk_flutter/admin) → **Automated publishing** → link this GitHub repository.
+Older workflow versions blocked on `dart pub publish` for 5–15 minutes when **Automated publishing (OIDC)** was not enabled on [pub.dev](https://pub.dev/packages/bidscube_sdk_flutter/admin).
 
-The workflow now fails fast (**15 minute** step timeout, **14 minute** command timeout) instead of waiting until the job is canceled.
+Current workflow: **GitHub Release completes first**; pub.dev runs only when `PUB_DEV_PUBLISH_ENABLED=true` or manual workflow with publish checked. Otherwise publish locally:
+
+```bash
+dart pub publish -f
+```
 
 ## If the version is already on pub.dev
 

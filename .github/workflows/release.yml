@@ -1,8 +1,13 @@
-# pub.dev + GitHub Release on push of tag v* (e.g. v1.0.0).
-# pubspec.yaml version: must match the tag without the v prefix.
+# GitHub Release on push of tag v* (e.g. v1.2.3).
+# pubspec.yaml version must match the tag without the v prefix.
 #
-# One-time pub.dev setup: https://dart.dev/tools/pub/automated-publishing
-# GitHub repo → pub.dev → Enable automated publishing → OIDC (id-token: write below).
+# pub.dev publish is OPTIONAL (separate job). Enable only after OIDC is configured:
+#   pub.dev package admin → Automated publishing → link this GitHub repo
+#   GitHub repo → Settings → Secrets and variables → Actions → Variables:
+#     PUB_DEV_PUBLISH_ENABLED = true
+#
+# Without that variable, tag push creates GitHub Release only (fast, no hang).
+# Manual pub.dev: dart pub publish -f  (local) or re-run workflow with publish_pub_dev.
 
 name: Release (pub.dev + GitHub)
 
@@ -10,8 +15,12 @@ on:
   push:
     tags:
       - "v*"
-  # Manual run: test + analyze + pub publish --dry-run (publish only on tag push v*).
   workflow_dispatch:
+    inputs:
+      publish_pub_dev:
+        description: "Attempt pub.dev publish (requires OIDC on pub.dev)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -74,8 +83,6 @@ jobs:
       - name: pub publish --dry-run
         run: flutter pub publish --dry-run
 
-      # GitHub Release right after green CI, BEFORE pub.dev — otherwise OIDC/pub publish failure
-      # would skip creating a GitHub release entirely.
       - name: GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -84,43 +91,79 @@ jobs:
           name: bidscube_sdk_flutter ${{ env.RELEASE_VERSION }}
           generate_release_notes: true
           body: |
-            ## Install (pub.dev)
+            ## Install
+
+            **GitHub** (path or git dependency):
+
+            ```yaml
+            dependencies:
+              bidscube_sdk_flutter:
+                git:
+                  url: https://github.com/${{ github.repository }}.git
+                  ref: ${{ github.ref_name }}
+            ```
+
+            **pub.dev** (when published):
 
             ```yaml
             dependencies:
               bidscube_sdk_flutter: ^${{ env.RELEASE_VERSION }}
             ```
 
-            Docs: [pub.dev/packages/bidscube_sdk_flutter](https://pub.dev/packages/bidscube_sdk_flutter)
+            Docs: [README](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/README.md)
 
-            See also [RELEASE.md](https://github.com/${{ github.repository }}/blob/main/RELEASE.md) in this repository.
+            See [RELEASE.md](https://github.com/${{ github.repository }}/blob/main/RELEASE.md) for pub.dev OIDC setup.
+
+  publish-pubdev:
+    needs: release
+    runs-on: ubuntu-latest
+    # Skip by default — avoids 5–15 min hang when pub.dev OIDC is not linked.
+    if: |
+      (github.event_name == 'workflow_dispatch' && inputs.publish_pub_dev) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && vars.PUB_DEV_PUBLISH_ENABLED == 'true')
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version-file: .github/flutter-version
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
 
       - name: Verify pub.dev OIDC prerequisites
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
-            echo "::error::OIDC is unavailable. Ensure workflow permissions include id-token: write."
+            echo "::warning::OIDC unavailable (id-token: write). Skipping pub.dev."
             exit 1
           fi
-          echo "OIDC token endpoint is available for pub.dev automated publishing."
+          echo "OIDC token endpoint available."
 
       - name: Publish to pub.dev
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        timeout-minutes: 15
+        timeout-minutes: 3
         shell: bash
         run: |
           set +e
-          output="$(timeout 840 dart pub publish -f 2>&1)"
+          output="$(timeout 120 dart pub publish -f 2>&1)"
           rc=$?
           echo "$output"
           if [ "$rc" -eq 124 ]; then
-            echo "::error::pub publish timed out after 14 minutes. Check pub.dev automated publishing (OIDC) for this repository."
+            echo "::warning::pub publish timed out after 2 minutes."
+            echo "Enable Automated publishing on pub.dev for this repo, or publish locally: dart pub publish -f"
             exit 1
           fi
           if [ "$rc" -ne 0 ]; then
             if echo "$output" | grep -qi "already exists"; then
-              echo "Version already on pub.dev — workflow finished."
+              echo "Version already on pub.dev."
               exit 0
             fi
+            echo "::warning::pub.dev publish failed (rc=$rc). GitHub Release is still valid."
             exit "$rc"
           fi
+          echo "Published to pub.dev successfully."
