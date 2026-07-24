@@ -41,6 +41,16 @@ class MethodChannelBidscube extends BidscubePlatform {
   }
 
   @override
+  Future<void> setUserId(String? userId) async {
+    try {
+      await _channel.invokeMethod('setUserId', {'userId': userId});
+    } on PlatformException catch (e) {
+      SDKLogger.error('Failed to set user id', e);
+      rethrow;
+    }
+  }
+
+  @override
   Future<Widget> getBannerAdView(
     String placementId,
     AdCallback? callback,

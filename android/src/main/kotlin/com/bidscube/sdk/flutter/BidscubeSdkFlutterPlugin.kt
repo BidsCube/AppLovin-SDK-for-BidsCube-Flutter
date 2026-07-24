@@ -112,6 +112,13 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 BidscubeSDK.resetConsent()
                 result.success(null)
             }
+            "setUserId" -> {
+                val userId = call.argument<String>("userId")
+                if (BidscubeSDK.isInitialized()) {
+                    BidscubeSDK.setUserId(userId)
+                }
+                result.success(null)
+            }
             "requestConsentInfoUpdate" -> requestConsentInfoUpdate(result)
             "showConsentForm" -> showConsentForm(result)
             "getSKAdNetworkIds" -> result.success(emptyList<String>())
@@ -200,6 +207,22 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 arrayOf(java.lang.Boolean.TYPE),
                 arrayOf(testMode),
             )
+        }
+        val userId = (map["userId"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+            ?: (map["user_id"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+        if (userId != null) {
+            val invoked = invokeFirstMatchingMethod(
+                builder,
+                listOf("userId", "setUserId"),
+                arrayOf(String::class.java),
+                arrayOf(userId),
+            )
+            if (!invoked) {
+                Log.w(
+                    TAG,
+                    "SDKConfig.Builder has no userId setter; Dart userId ignored on this native SDK version",
+                )
+            }
         }
     }
 

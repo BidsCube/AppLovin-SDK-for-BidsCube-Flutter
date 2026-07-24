@@ -74,6 +74,18 @@ class BidscubeSDK {
   /// Get current SDK configuration
   static SDKConfig? get config => _config;
 
+  /// Publisher user id from config, if set at init or via [setUserId].
+  static String? get userId => _config?.userId;
+
+  /// Sets or updates the publisher user id sent as `user_id` on ad requests.
+  ///
+  /// May be called at init via [SDKConfigBuilder.userId] or after login.
+  static Future<void> setUserId(String? userId) async {
+    _checkInitialized();
+    _config = _config!.withUserId(userId);
+    await _platform.setUserId(_config!.userId);
+  }
+
   /// Check if using Flutter-only mode
   static bool get isFlutterOnly => _useFlutterOnly;
 

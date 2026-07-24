@@ -66,6 +66,11 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
         case "resetConsent":
             BidscubeSDK.resetConsent()
             result(nil)
+        case "setUserId":
+            let args = call.arguments as? [String: Any]
+            let userId = args?["userId"] as? String
+            BidscubeSDK.setUserId(userId)
+            result(nil)
         case "getSKAdNetworkIds":
             getSKAdNetworkIds(result: result)
         case "showVideoAdFromVast":
@@ -85,13 +90,17 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             let enableDebugMode = config?["enableDebugMode"] as? Bool ?? false
             let defaultAdTimeout = config?["defaultAdTimeout"] as? Int ?? 30000
             let integrationMode = config?["integrationMode"] as? String ?? "direct"
+            let userIdRaw = config?["userId"] as? String ?? config?["user_id"] as? String
 
-            let sdkConfig = SDKConfig.Builder()
+            var builder = SDKConfig.Builder()
                 .baseURL(baseURL)
                 .enableLogging(enableLogging)
                 .enableDebugMode(enableDebugMode)
                 .defaultAdTimeout(defaultAdTimeout)
-                .build()
+            if let userIdRaw, let normalized = SDKConfig.normalizeUserId(userIdRaw) {
+                builder = builder.userId(normalized)
+            }
+            let sdkConfig = builder.build()
 
             BidscubeSDK.initialize(config: sdkConfig)
 

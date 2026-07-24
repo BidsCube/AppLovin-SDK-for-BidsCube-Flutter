@@ -43,6 +43,9 @@ class SDKConfig {
   /// default IMA player. Ignored by the native bridge (native uses its own player stack).
   final BidscubeCustomVideoPlayerBuilder? customVideoPlayerBuilder;
 
+  /// Optional publisher user id; sent as `user_id` on SSP ad requests when set.
+  final String? userId;
+
   SDKConfig({
     required this.adRequestAuthority,
     this.enableLogging = true,
@@ -52,7 +55,30 @@ class SDKConfig {
     this.enableTestMode = false,
     this.integrationMode = BidscubeIntegrationMode.directSdk,
     this.customVideoPlayerBuilder,
+    this.userId,
   });
+
+  /// Trims and drops empty publisher user ids (parity with native SDKs).
+  static String? normalizeUserId(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// Returns a copy with an updated [userId] (e.g. after login).
+  SDKConfig withUserId(String? userId) {
+    return SDKConfig(
+      adRequestAuthority: adRequestAuthority,
+      enableLogging: enableLogging,
+      enableDebugMode: enableDebugMode,
+      defaultAdTimeout: defaultAdTimeout,
+      defaultAdPosition: defaultAdPosition,
+      enableTestMode: enableTestMode,
+      integrationMode: integrationMode,
+      customVideoPlayerBuilder: customVideoPlayerBuilder,
+      userId: normalizeUserId(userId),
+    );
+  }
 
   /// Create SDKConfig from Map
   factory SDKConfig.fromMap(Map<String, dynamic> map) {
@@ -81,6 +107,9 @@ class SDKConfig {
       integrationMode: bidscubeIntegrationModeFromWire(
         map['integrationMode'] as String?,
       ),
+      userId: normalizeUserId(
+        map['userId'] as String? ?? map['user_id'] as String?,
+      ),
       // customVideoPlayerBuilder is not serializable; always null from map.
     );
   }
@@ -96,6 +125,7 @@ class SDKConfig {
       'defaultAdPosition': defaultAdPosition.value,
       'enableTestMode': enableTestMode,
       'integrationMode': integrationMode.wireValue,
+      if (userId != null) 'userId': userId,
     };
   }
 
@@ -113,6 +143,13 @@ class SDKConfigBuilder {
   bool _enableTestMode = false;
   BidscubeIntegrationMode _integrationMode = BidscubeIntegrationMode.directSdk;
   BidscubeCustomVideoPlayerBuilder? _customVideoPlayerBuilder;
+  String? _userId;
+
+  /// Sets the publisher user id sent as `user_id` on ad requests (postback attribution).
+  SDKConfigBuilder userId(String? userId) {
+    _userId = userId;
+    return this;
+  }
 
   /// Sets the SSP ad-request **authority** (host or `host:port`).
   ///
@@ -186,6 +223,7 @@ class SDKConfigBuilder {
       enableTestMode: _enableTestMode,
       integrationMode: _integrationMode,
       customVideoPlayerBuilder: _customVideoPlayerBuilder,
+      userId: SDKConfig.normalizeUserId(_userId),
     );
   }
 }

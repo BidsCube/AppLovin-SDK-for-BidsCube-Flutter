@@ -24,7 +24,7 @@ In MAX, put the **BidCube placement ID** in the custom network **App ID** field 
 
 | Component | Version |
 |-----------|---------|
-| Flutter package (`bidscube_sdk_flutter`) | **1.2.3** |
+| Flutter package (`bidscube_sdk_flutter`) | **1.2.4** |
 | Android MAX adapter (default `full-video`) | **1.2.10** |
 | iOS MAX pod (`BidscubeSDKAppLovin`) | **1.1.0** |
 | AppLovin MAX SDK | **13.x** |
@@ -57,7 +57,7 @@ The **AppLovin MAX mediation QA app** lives next to this repository as a sibling
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.2.3
+  bidscube_sdk_flutter: ^1.2.4
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 
@@ -175,7 +175,19 @@ For MAX mediation, ad sizing is owned by **AppLovin MAX**, not Bidscube Dart wid
 
 ## Direct SDK (no MAX)
 
-Default integration mode: `BidscubeIntegrationMode.directSdk`. After `BidscubeSDK.initialize(...)`, use `getBannerAdView`, `getVideoAdView`, `getNativeAdView` and `AdCallback`. Optional: `onAdRenderOverride(placementId, adm, position)` for custom rendering.  
+Default integration mode: `BidscubeIntegrationMode.directSdk`. After `BidscubeSDK.initialize(...)`, use `getBannerAdView`, `getVideoAdView`, `getNativeAdView` and `AdCallback`. Optional: `onAdRenderOverride(placementId, adm, position)` for custom rendering.
+
+Pass your publisher user id at init (sent as `user_id` on ad requests for postback):
+
+```dart
+await BidscubeSDK.initialize(
+  config: SDKConfig.builder()
+      .userId('your-publisher-user-id')
+      .build(),
+);
+// Or after login:
+await BidscubeSDK.setUserId('your-publisher-user-id');
+```  
 **Web / desktop:** `useFlutterOnly: true` — HTTP/WebView path only; no native bridge.
 
 ---
@@ -247,6 +259,6 @@ See [`.pubignore`](.pubignore) for `dart pub publish` exclusions.
 
 ## Version
 
-**Bidscube Flutter SDK 1.2.3** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
+**Bidscube Flutter SDK 1.2.4** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
 
 Maintainers: [`RELEASE.md`](RELEASE.md) · `./scripts/validate-package.sh`

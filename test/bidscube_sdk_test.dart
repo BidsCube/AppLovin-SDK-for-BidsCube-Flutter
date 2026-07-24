@@ -35,6 +35,19 @@ void main() {
       expect(map['integrationMode'], 'direct');
       expect(map['adRequestAuthority'], Constants.defaultAdRequestAuthority);
       expect(map['baseURL'], Constants.defaultSdkBaseUrl);
+      expect(map.containsKey('userId'), false);
+    });
+
+    test('SDKConfig userId is normalized and serialized', () {
+      final withUser = SDKConfig.builder().userId('  uid-42  ').build();
+      expect(withUser.userId, 'uid-42');
+      expect(withUser.toMap()['userId'], 'uid-42');
+
+      final fromMap = SDKConfig.fromMap({'user_id': 'abc'});
+      expect(fromMap.userId, 'abc');
+
+      expect(SDKConfig.normalizeUserId(''), isNull);
+      expect(SDKConfig.normalizeUserId('  '), isNull);
     });
 
     test('SDKConfig should be created from map correctly', () {

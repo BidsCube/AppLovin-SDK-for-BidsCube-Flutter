@@ -49,6 +49,11 @@ class FlutterOnlyBidscube extends BidscubePlatform {
   }
 
   @override
+  Future<void> setUserId(String? userId) async {
+    _sdkConfig = _sdkConfig?.withUserId(userId);
+  }
+
+  @override
   Future<Widget> getBannerAdView(
     String placementId,
     AdCallback? callback,

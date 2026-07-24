@@ -36,7 +36,7 @@ class Constants {
   static const String userAgentPrefix = 'BidscubeSDK-Flutter';
 
   /// SDK Version
-  static const String sdkVersion = "1.2.3";
+  static const String sdkVersion = "1.2.4";
 
   /// Error Codes
   static const int errorCodeInvalidURL = -1;
@@ -102,6 +102,7 @@ class Constants {
   static const String queryParamWidth = 'w';
   static const String queryParamHeight = 'h';
   static const String queryParamUserAgent = 'ua';
+  static const String queryParamUserId = 'user_id';
   static const String queryParamAdvertisingId = 'ifa';
   static const String queryParamDoNotTrack = 'dnt';
   static const String queryParamAppVersion = 'app_version';
@@ -152,7 +153,7 @@ class Constants {
   static const String defaultPlatform = 'Flutter';
 
   /// WebView Constants
-  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.2.3";
+  static const String webViewUserAgent = "BidscubeSDK-Flutter/1.2.4";
   static const String webViewJavaScriptChannel = 'flutter_inappwebview';
 
   /// Ad View Constants

@@ -54,6 +54,11 @@ class URLBuilder {
         queryParams['cta_text'] = ctaText;
       }
 
+      final userId = BidscubeSDK.isInitialized ? BidscubeSDK.config?.userId : null;
+      if (userId != null && userId.isNotEmpty) {
+        queryParams[Constants.queryParamUserId] = userId;
+      }
+
       final finalUri = uri.replace(queryParameters: queryParams);
       final url = finalUri.toString();
 

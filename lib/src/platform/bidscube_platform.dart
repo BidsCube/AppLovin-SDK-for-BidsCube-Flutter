@@ -9,6 +9,9 @@ abstract class BidscubePlatform {
   /// Initialize the platform
   Future<void> initialize({required SDKConfig config});
 
+  /// Sets or updates the publisher user id (`user_id` on SSP ad requests).
+  Future<void> setUserId(String? userId);
+
   /// Get Banner Ad View
   Future<Widget> getBannerAdView(
     String placementId,

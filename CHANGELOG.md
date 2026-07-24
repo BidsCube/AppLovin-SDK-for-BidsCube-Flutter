@@ -1,3 +1,8 @@
+## 1.2.4 - 2026-07-24
+
+* **Publisher user id:** `SDKConfigBuilder.userId(...)` at init and `BidscubeSDK.setUserId(...)` after login. Sent as `user_id` on SSP ad requests (native Android/iOS + Flutter-only HTTP).
+* **Version:** `1.2.4` — aligned across `pubspec.yaml`, Android Gradle, iOS podspec, `Constants.sdkVersion`.
+
 ## 1.2.3 - 2026-07-08
 
 * **Release:** AppLovin MAX Flutter integration — native adapter wiring on Android/iOS, mediation vs direct SDK modes, consent bridge, callback registry, PlatformView sizing.
