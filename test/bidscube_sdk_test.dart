@@ -50,6 +50,23 @@ void main() {
       expect(SDKConfig.normalizeUserId('  '), isNull);
     });
 
+    test('SDKConfig autoClose defaults to false and serializes', () {
+      expect(SDKConfig.builder().build().autoClose, isFalse);
+      expect(
+        SDKConfig.builder().autoClose(true).build().autoClose,
+        isTrue,
+      );
+      expect(
+        SDKConfig.builder().autoClose(false).build().autoClose,
+        isFalse,
+      );
+      expect(SDKConfig.builder().build().toMap()['autoClose'], isFalse);
+      expect(
+        SDKConfig.fromMap({'auto_close': true}).autoClose,
+        isTrue,
+      );
+    });
+
     test('SDKConfig should be created from map correctly', () {
       final map = {
         'adRequestAuthority': 'ssp-bcc-ads.com',

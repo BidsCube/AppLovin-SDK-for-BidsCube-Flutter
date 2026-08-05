@@ -5,23 +5,30 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
+import '../bidscube_sdk.dart';
 import '../core/callbacks.dart';
 import '../core/logger.dart';
 import '../core/sdk_diagnostics.dart';
 import '../core/vast_parser.dart';
+import '../video/fullscreen_post_video_action.dart';
+import '../video/fullscreen_video_session_controller.dart';
 import 'vast_end_card_view.dart';
+import 'vast_html_companion_view.dart';
 
-/// Progressive MP4 VAST player with skip countdown and companion end card.
+/// Progressive MP4 VAST player with skip countdown, [autoClose] policy, and
+/// VAST Companion end cards (Static / HTML / IFrame).
 class VastVideoAdView extends StatefulWidget {
   final String placementId;
   final String vastXml;
   final AdCallback? callback;
+  final bool? autoClose;
 
   const VastVideoAdView({
     super.key,
     required this.placementId,
     required this.vastXml,
     this.callback,
+    this.autoClose,
   });
 
   @override
@@ -31,8 +38,17 @@ class VastVideoAdView extends StatefulWidget {
 class _VastVideoAdViewState extends State<VastVideoAdView> {
   VastAd? _vastAd;
   VideoPlayerController? _controller;
+  FullscreenVideoSessionController? _session;
   String? _error;
-  bool _showEndCard = false;
+
+  bool _showSkipOverlay = true;
+  bool _playerVisible = true;
+  bool _showStaticEndCard = false;
+  bool _showHtmlEndCard = false;
+  bool _showManualCloseButton = false;
+  bool _adClosed = false;
+  bool _companionViewTrackingFired = false;
+
   bool _videoStarted = false;
   int _skipCountdown = -1;
   bool _skipEnabled = false;
@@ -52,6 +68,9 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
     super.dispose();
   }
 
+  bool get _autoClose =>
+      widget.autoClose ?? BidscubeSDK.isAutoClose;
+
   Future<void> _loadVast() async {
     try {
       widget.callback?.onAdLoading(widget.placementId);
@@ -59,6 +78,12 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
       if (vastAd == null || vastAd.videoUrl == null) {
         throw Exception('No video URL in VAST');
       }
+
+      _session = FullscreenVideoSessionController(
+        autoClose: _autoClose,
+        playerManagesPostVideo: false,
+        companion: vastAd.companion,
+      );
 
       await _fireTracking(vastAd.impressionUrls);
 
@@ -73,20 +98,25 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
         return;
       }
 
-      final hasCompanionPreview =
-          vastAd.companionPreviewUrl?.isNotEmpty == true;
+      final companion = vastAd.companion;
       SDKDiagnostics.logAdRequestPhase(
         placementId: widget.placementId,
         phase: 'vast_parsed',
-        detail: hasCompanionPreview
-            ? 'companion_preview=${vastAd.companionPreviewUrl}'
-            : 'companion_preview=none_using_fallback_end_card',
+        detail: companion == null
+            ? 'companion=none'
+            : 'companion=${companion.resourceType.name}',
       );
       if (vastAd.skipOffsetSeconds > 0) {
         SDKDiagnostics.logVideoPlayerRoute(
           placementId: widget.placementId,
           route: 'vast_skip_offset',
           detail: 'seconds=${vastAd.skipOffsetSeconds}',
+        );
+      } else {
+        SDKDiagnostics.logVideoPlayerRoute(
+          placementId: widget.placementId,
+          route: 'vast_skip_offset',
+          detail: 'default_seconds=${VastParser.defaultSkipSeconds}',
         );
       }
 
@@ -100,7 +130,8 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
 
       await controller.play();
       _onVideoStarted();
-      _startSkipCountdown(vastAd.skipOffsetSeconds);
+      final skipSeconds = VastParser.resolveSkipSeconds(widget.vastXml);
+      _startSkipCountdown(skipSeconds);
     } catch (e) {
       SDKLogger.error('VAST video load failed', e);
       if (mounted) {
@@ -129,16 +160,19 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
     if (controller.value.position >= controller.value.duration &&
         !controller.value.isPlaying &&
         controller.value.duration > Duration.zero &&
-        !_showEndCard) {
+        _session != null &&
+        !_session!.isAdClosed) {
       _onVideoFinished(skipped: false);
     }
   }
 
   void _startSkipCountdown(int skipOffsetSeconds) {
-    if (skipOffsetSeconds <= 0) return;
+    final seconds = skipOffsetSeconds > 0
+        ? skipOffsetSeconds
+        : VastParser.defaultSkipSeconds;
 
     setState(() {
-      _skipCountdown = skipOffsetSeconds;
+      _skipCountdown = seconds;
       _skipEnabled = false;
     });
 
@@ -161,30 +195,108 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
   }
 
   Future<void> _onVideoFinished({required bool skipped}) async {
+    final session = _session;
+    if (session == null || session.isAdClosed) return;
+
     _skipTimer?.cancel();
     await _controller?.pause();
 
     if (skipped) {
-      final skipUrls = _vastAd?.trackingEvents['skip'] ?? [];
-      await _fireTracking(skipUrls);
-      widget.callback?.onVideoAdSkipped(widget.placementId);
+      if (session.shouldFireSkipped()) {
+        final skipUrls = _vastAd?.trackingEvents['skip'] ?? [];
+        await _fireTracking(skipUrls);
+        widget.callback?.onVideoAdSkipped(widget.placementId);
+      }
+      _applyPostVideoAction(session.onSkipped());
     } else {
-      final completeUrls = _vastAd?.trackingEvents['complete'] ?? [];
-      await _fireTracking(completeUrls);
-      widget.callback?.onVideoAdCompleted(widget.placementId);
+      if (session.shouldFireLinearCompleted()) {
+        final completeUrls = _vastAd?.trackingEvents['complete'] ?? [];
+        await _fireTracking(completeUrls);
+        widget.callback?.onVideoAdCompleted(widget.placementId);
+      }
+      _applyPostVideoAction(session.onLinearCompleted());
+    }
+  }
+
+  void _applyPostVideoAction(FullscreenPostVideoAction action) {
+    if (action.isNoop) return;
+
+    if (action.dismissDialog || action.fireAdClosed) {
+      _dismissEntireAd(fireCallback: action.fireAdClosed);
+      return;
+    }
+
+    if (action.releasePlayer) {
+      _releasePlayer();
     }
 
     if (mounted) {
-      final preview = _vastAd?.companionPreviewUrl;
-      SDKDiagnostics.logAdRequestPhase(
-        placementId: widget.placementId,
-        phase: 'end_card_show',
-        detail: preview != null && preview.isNotEmpty
-            ? 'companion_image'
-            : 'fallback_placeholder',
-      );
-      setState(() => _showEndCard = true);
+      setState(() {
+        if (action.removeSkipOverlay) _showSkipOverlay = false;
+        if (action.hidePlayer) _playerVisible = false;
+        if (action.keepPlayerVisible) _playerVisible = true;
+        if (action.showStaticCompanionEndCard) {
+          _showStaticEndCard = true;
+          _fireCompanionViewTrackingOnce();
+        }
+        if (action.showHtmlCompanionEndCard) {
+          _showHtmlEndCard = true;
+          _fireCompanionViewTrackingOnce();
+        }
+        if (action.showManualCloseButton) _showManualCloseButton = true;
+      });
     }
+
+    SDKDiagnostics.logAdRequestPhase(
+      placementId: widget.placementId,
+      phase: 'post_video_action',
+      detail:
+          'playerVisible=$_playerVisible static=$_showStaticEndCard html=$_showHtmlEndCard manualClose=$_showManualCloseButton',
+    );
+  }
+
+  void _releasePlayer() {
+    final controller = _controller;
+    if (controller == null) return;
+    controller.removeListener(_onVideoTick);
+    unawaited(controller.dispose());
+    _controller = null;
+  }
+
+  void _fireCompanionViewTrackingOnce() {
+    if (_companionViewTrackingFired) return;
+    _companionViewTrackingFired = true;
+    final urls = _vastAd?.companion?.creativeViewTrackingUrls ?? [];
+    unawaited(_fireTracking(urls));
+  }
+
+  void _dismissEntireAd({required bool fireCallback}) {
+    if (_adClosed) return;
+    _adClosed = true;
+    _skipTimer?.cancel();
+    _releasePlayer();
+    if (fireCallback) {
+      widget.callback?.onAdClosed(widget.placementId);
+    }
+    if (mounted) {
+      setState(() {
+        _showSkipOverlay = false;
+        _playerVisible = false;
+        _showStaticEndCard = false;
+        _showHtmlEndCard = false;
+        _showManualCloseButton = false;
+      });
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  void _onUserClose() {
+    final session = _session;
+    if (session == null) {
+      _dismissEntireAd(fireCallback: true);
+      return;
+    }
+    _applyPostVideoAction(session.onUserClose());
   }
 
   Future<void> _fireTracking(List<String> urls) async {
@@ -197,10 +309,9 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
     }
   }
 
-  Future<void> _openUrl(String? url) async {
+  Future<void> _openUrl(String? url, {List<String> clickTracking = const []}) async {
     if (url == null || url.isEmpty) return;
 
-    final clickTracking = _vastAd?.clickTrackingUrls ?? [];
     await _fireTracking(clickTracking);
 
     final uri = Uri.parse(url);
@@ -208,13 +319,6 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
     widget.callback?.onAdClicked(widget.placementId);
-  }
-
-  void _closeAd() {
-    widget.callback?.onAdClosed(widget.placementId);
-    if (mounted) {
-      Navigator.of(context).maybePop();
-    }
   }
 
   String? get _endCardClickUrl {
@@ -240,14 +344,18 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
     }
 
     if (_controller == null || !_controller!.value.isInitialized) {
-      return _scaffold(const Center(child: CircularProgressIndicator()));
+      if (!_showStaticEndCard && !_showHtmlEndCard) {
+        return _scaffold(const Center(child: CircularProgressIndicator()));
+      }
     }
 
     return _scaffold(
       Stack(
         fit: StackFit.expand,
         children: [
-          if (!_showEndCard)
+          if (_playerVisible &&
+              _controller != null &&
+              _controller!.value.isInitialized)
             FittedBox(
               fit: BoxFit.contain,
               child: SizedBox(
@@ -255,16 +363,16 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
                 height: _controller!.value.size.height,
                 child: VideoPlayer(_controller!),
               ),
-            )
-          else
-            _buildEndCard(),
-          if (!_showEndCard && _skipCountdown >= 0)
+            ),
+          if (_showStaticEndCard) _buildStaticEndCard(),
+          if (_showHtmlEndCard) _buildHtmlEndCard(),
+          if (_showSkipOverlay && _skipCountdown >= 0)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 12,
               right: 12,
               child: _buildSkipControl(),
             ),
-          if (_showEndCard && !_hasCompanionPreview)
+          if (_showManualCloseButton)
             Positioned(
               top: MediaQuery.paddingOf(context).top + 12,
               right: 12,
@@ -272,17 +380,21 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
             ),
         ],
       ),
-      backgroundColor: _showEndCard && _hasCompanionPreview
+      backgroundColor: (_showStaticEndCard || _showHtmlEndCard)
           ? const Color(0xFFF2F2F2)
           : Colors.black,
     );
   }
 
-  bool get _hasCompanionPreview =>
-      _vastAd?.companionPreviewUrl?.isNotEmpty == true;
-
   Widget _scaffold(Widget body, {Color backgroundColor = Colors.black}) {
-    return Scaffold(backgroundColor: backgroundColor, body: body);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _onUserClose();
+      },
+      child: Scaffold(backgroundColor: backgroundColor, body: body),
+    );
   }
 
   Widget _buildSkipControl() {
@@ -310,29 +422,55 @@ class _VastVideoAdViewState extends State<VastVideoAdView> {
       shape: const CircleBorder(),
       child: IconButton(
         icon: const Icon(Icons.close, color: Colors.white),
-        onPressed: _closeAd,
+        onPressed: _onUserClose,
       ),
     );
   }
 
-  Widget _buildEndCard() {
+  Widget _buildStaticEndCard() {
+    final companion = _vastAd?.companion;
     final clickUrl = _endCardClickUrl;
+    final previewUrl = companion?.resource ?? _vastAd?.companionPreviewUrl;
 
-    if (_hasCompanionPreview) {
+    if (previewUrl != null && previewUrl.isNotEmpty) {
       return VastEndCardView(
-        previewUrl: _vastAd!.companionPreviewUrl!,
+        previewUrl: previewUrl,
         clickUrl: clickUrl,
-        onClose: _closeAd,
-        onTap: clickUrl != null ? () => _openUrl(clickUrl) : null,
+        onClose: _onUserClose,
+        onTap: clickUrl != null
+            ? () => _openUrl(
+                  clickUrl,
+                  clickTracking: companion?.clickTrackingUrls ??
+                      _vastAd?.clickTrackingUrls ??
+                      const [],
+                )
+            : null,
       );
     }
 
     return GestureDetector(
-      onTap: clickUrl != null ? () => _openUrl(clickUrl) : null,
+      onTap: clickUrl != null
+          ? () => _openUrl(clickUrl, clickTracking: _vastAd?.clickTrackingUrls ?? const [])
+          : null,
       child: ColoredBox(
         color: const Color(0xFF1A1A1A),
         child: _fallbackEndCard(clickUrl),
       ),
+    );
+  }
+
+  Widget _buildHtmlEndCard() {
+    final companion = _vastAd?.companion;
+    if (companion == null || !companion.isInteractive) {
+      return const SizedBox.shrink();
+    }
+    final clickUrl = companion.clickThroughUrl ?? _endCardClickUrl;
+    return VastHtmlCompanionView(
+      companion: companion,
+      onClose: _onUserClose,
+      onTap: clickUrl != null
+          ? () => _openUrl(clickUrl, clickTracking: companion.clickTrackingUrls)
+          : null,
     );
   }
 

@@ -100,6 +100,9 @@ public class BidscubeSdkPlugin: NSObject, FlutterPlugin {
             if let userIdRaw, let normalized = SDKConfig.normalizeUserId(userIdRaw) {
                 builder = builder.userId(normalized)
             }
+            if let autoClose = config?["autoClose"] as? Bool ?? config?["auto_close"] as? Bool {
+                builder = builder.autoClose(autoClose)
+            }
             let sdkConfig = builder.build()
 
             BidscubeSDK.initialize(config: sdkConfig)

@@ -46,6 +46,11 @@ class SDKConfig {
   /// Optional publisher user id; sent as `user_id` on SSP ad requests when set.
   final String? userId;
 
+  /// When `true`, fullscreen video closes immediately after linear playback ends
+  /// or is skipped. Default `false` — keep ad open for VAST Companion, last
+  /// frame, or manual close.
+  final bool autoClose;
+
   SDKConfig({
     required this.adRequestAuthority,
     this.enableLogging = true,
@@ -56,6 +61,7 @@ class SDKConfig {
     this.integrationMode = BidscubeIntegrationMode.directSdk,
     this.customVideoPlayerBuilder,
     this.userId,
+    this.autoClose = false,
   });
 
   /// Trims and drops empty publisher user ids (parity with native SDKs).
@@ -77,6 +83,23 @@ class SDKConfig {
       integrationMode: integrationMode,
       customVideoPlayerBuilder: customVideoPlayerBuilder,
       userId: normalizeUserId(userId),
+      autoClose: autoClose,
+    );
+  }
+
+  /// Returns a copy with an updated [autoClose] flag.
+  SDKConfig withAutoClose(bool autoClose) {
+    return SDKConfig(
+      adRequestAuthority: adRequestAuthority,
+      enableLogging: enableLogging,
+      enableDebugMode: enableDebugMode,
+      defaultAdTimeout: defaultAdTimeout,
+      defaultAdPosition: defaultAdPosition,
+      enableTestMode: enableTestMode,
+      integrationMode: integrationMode,
+      customVideoPlayerBuilder: customVideoPlayerBuilder,
+      userId: userId,
+      autoClose: autoClose,
     );
   }
 
@@ -110,6 +133,9 @@ class SDKConfig {
       userId: normalizeUserId(
         map['userId'] as String? ?? map['user_id'] as String?,
       ),
+      autoClose: map['autoClose'] as bool? ??
+          map['auto_close'] as bool? ??
+          false,
       // customVideoPlayerBuilder is not serializable; always null from map.
     );
   }
@@ -126,6 +152,7 @@ class SDKConfig {
       'enableTestMode': enableTestMode,
       'integrationMode': integrationMode.wireValue,
       if (userId != null) 'userId': userId,
+      'autoClose': autoClose,
     };
   }
 
@@ -144,10 +171,17 @@ class SDKConfigBuilder {
   BidscubeIntegrationMode _integrationMode = BidscubeIntegrationMode.directSdk;
   BidscubeCustomVideoPlayerBuilder? _customVideoPlayerBuilder;
   String? _userId;
+  bool _autoClose = false;
 
   /// Sets the publisher user id sent as `user_id` on ad requests (postback attribution).
   SDKConfigBuilder userId(String? userId) {
     _userId = userId;
+    return this;
+  }
+
+  /// Auto-dismiss fullscreen video after linear playback ends or is skipped.
+  SDKConfigBuilder autoClose(bool value) {
+    _autoClose = value;
     return this;
   }
 
@@ -224,6 +258,7 @@ class SDKConfigBuilder {
       integrationMode: _integrationMode,
       customVideoPlayerBuilder: _customVideoPlayerBuilder,
       userId: SDKConfig.normalizeUserId(_userId),
+      autoClose: _autoClose,
     );
   }
 }

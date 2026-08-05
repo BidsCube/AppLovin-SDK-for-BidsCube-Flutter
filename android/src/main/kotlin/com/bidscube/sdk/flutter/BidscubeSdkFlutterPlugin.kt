@@ -224,6 +224,22 @@ class BidscubeSdkFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler,
                 )
             }
         }
+        val autoClose = map["autoClose"] as? Boolean
+            ?: map["auto_close"] as? Boolean
+        if (autoClose != null) {
+            val invoked = invokeFirstMatchingMethod(
+                builder,
+                listOf("autoClose", "setAutoClose"),
+                arrayOf(java.lang.Boolean.TYPE),
+                arrayOf(autoClose),
+            )
+            if (!invoked) {
+                Log.w(
+                    TAG,
+                    "SDKConfig.Builder has no autoClose setter; Dart autoClose ignored on this native SDK version",
+                )
+            }
+        }
     }
 
     private fun invokeFirstMatchingMethod(

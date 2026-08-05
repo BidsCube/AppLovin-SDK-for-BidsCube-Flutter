@@ -39,6 +39,9 @@ export 'src/platform/flutter_only_bidscube.dart';
 // Core utilities
 export 'src/core/constants.dart';
 export 'src/core/vast_parser.dart';
+export 'src/core/companion_ad.dart';
+export 'src/video/fullscreen_video_session_controller.dart';
+export 'src/video/fullscreen_post_video_action.dart';
 export 'src/core/ad_request_client.dart';
 export 'src/core/url_builder.dart';
 export 'src/core/ad_request_authority_normalizer.dart';

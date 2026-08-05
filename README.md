@@ -24,7 +24,7 @@ In MAX, put the **BidCube placement ID** in the custom network **App ID** field 
 
 | Component | Version |
 |-----------|---------|
-| Flutter package (`bidscube_sdk_flutter`) | **1.2.4** |
+| Flutter package (`bidscube_sdk_flutter`) | **1.2.5** |
 | Android MAX adapter (default `full-video`) | **1.2.10** |
 | iOS MAX pod (`BidscubeSDKAppLovin`) | **1.1.0** |
 | AppLovin MAX SDK | **13.x** |
@@ -57,7 +57,7 @@ The **AppLovin MAX mediation QA app** lives next to this repository as a sibling
 
 ```yaml
 dependencies:
-  bidscube_sdk_flutter: ^1.2.4
+  bidscube_sdk_flutter: ^1.2.5
   applovin_max: ^4.6.0   # MAX load/show from Dart; pin per your app
 ```
 
@@ -183,11 +183,15 @@ Pass your publisher user id at init (sent as `user_id` on ad requests for postba
 await BidscubeSDK.initialize(
   config: SDKConfig.builder()
       .userId('your-publisher-user-id')
+      .autoClose(false) // default: keep ad open for Companion / last frame
       .build(),
 );
 // Or after login:
 await BidscubeSDK.setUserId('your-publisher-user-id');
-```  
+```
+
+**`autoClose`** (default `false`): when `true`, fullscreen video dismisses immediately after linear playback ends or is skipped. When `false`, the ad stays open for VAST Companion, the last video frame, or manual close; `onAdClosed` fires only on user/system dismiss. Native Android/iOS SDKs apply this for IMA fullscreen flows; Flutter [`VastVideoAdView`](lib/src/views/vast_video_ad_view.dart) uses the same policy for progressive MP4 VAST. AppLovin MAX adapters forward init server parameters `auto_close` / `autoClose` to the native SDK.
+
 **Web / desktop:** `useFlutterOnly: true` — HTTP/WebView path only; no native bridge.
 
 ---
@@ -259,6 +263,6 @@ See [`.pubignore`](.pubignore) for `dart pub publish` exclusions.
 
 ## Version
 
-**Bidscube Flutter SDK 1.2.4** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
+**Bidscube Flutter SDK 1.2.5** (see [`pubspec.yaml`](pubspec.yaml), [`CHANGELOG.md`](CHANGELOG.md)).
 
 Maintainers: [`RELEASE.md`](RELEASE.md) · `./scripts/validate-package.sh`

@@ -77,6 +77,9 @@ class BidscubeSDK {
   /// Publisher user id from config, if set at init or via [setUserId].
   static String? get userId => _config?.userId;
 
+  /// Fullscreen video auto-close flag from init config (default `false`).
+  static bool get isAutoClose => _config?.autoClose ?? false;
+
   /// Sets or updates the publisher user id sent as `user_id` on ad requests.
   ///
   /// May be called at init via [SDKConfigBuilder.userId] or after login.

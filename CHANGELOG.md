@@ -1,3 +1,10 @@
+## 1.2.5 - 2026-08-05
+
+* **`autoClose`** (default `false`): `SDKConfigBuilder.autoClose(...)`, `BidscubeSDK.isAutoClose`; forwarded to native Android/iOS at init. Fullscreen video lifecycle via `FullscreenVideoSessionController` — Companion end cards (Static / HTML / IFrame), last frame, manual close, centralized dismiss.
+* **VAST Companion:** priority HTML > IFrame > Static; `CompanionClickThrough`, click/view tracking; [`VastHtmlCompanionView`](lib/src/views/vast_html_companion_view.dart).
+* **Skip countdown:** default **15 s** or VAST `Linear@skipoffset` (`VastParser.resolveSkipSeconds`), parity with native SDK.
+* **Version:** `1.2.5` — aligned across `pubspec.yaml`, Android Gradle, iOS podspec, `Constants.sdkVersion`.
+
 ## 1.2.4 - 2026-07-24
 
 * **Publisher user id:** `SDKConfigBuilder.userId(...)` at init and `BidscubeSDK.setUserId(...)` after login. Sent as `user_id` on SSP ad requests (native Android/iOS + Flutter-only HTTP).
